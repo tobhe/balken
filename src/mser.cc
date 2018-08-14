@@ -12,24 +12,40 @@ namespace balken {
 namespace mser {
 namespace detail {
 
-enum class State { push_empty, neighbours };
-
-template <class T, class Container = std::vector<T>>
-class Heap
+/**
+ * \brief Priority queue of pixels
+ *
+ * A priority queue of pixel elements, containing the pixels location as well
+ * as the pixels grey level. Value type ist the pixels location, element access
+ * operations return only the pixels location. The priority ignores the
+ * location and only compares the pixels grey level values.
+ *
+ * \tparam  CoordT  The pixels coordinates (allows both 1d and 2d addressing)
+ */
+template <class CoordT, class Container = std::vector<CoordT>>
+class pixel_priority_queue
 {
-  using value_type      = T;
+private:
+  struct Element;
+  using queue_type =
+    std::priority_queue<Element, std::vector<Element>, std::greater<Element>>;
+
+public:
+  using value_type      = CoordT;
   using reference       = value_type &;
   using const_reference = const value_type &;
-  using size_type       = std::size_t;
+  using size_type       = typename queue_type::size_type;
 
+private:
   struct Element
   {
     using self_t = Element;
 
     // Constructor
-    Element(T p, int level) : p{p}, level{level} {}
+    Element(CoordT p, int level) : p{p}, level{level} {}
 
-    // Comparison
+    // Comparison (required for priority_queue)
+    // only compares levels of elements, ignores location
     bool operator==(const self_t & other) const {
       return level == other.level;
     }
@@ -44,12 +60,14 @@ class Heap
     }
 
     // Public members
-    T   p;
-    int level;
+    CoordT p;      // < pixel location
+    int    level;  // < pixel level
   };
 
 public:
-  Heap() = default;
+  // Construction
+  pixel_priority_queue()  = default;
+  ~pixel_priority_queue() = default;
 
   // Element Access
   const_reference top() const { return _queue.top().p; }
@@ -70,8 +88,7 @@ public:
   void pop() { _queue.pop(); }
 
 private:
-  std::priority_queue<Element, std::vector<Element>, std::greater<Element>>
-    _queue;
+  queue_type _queue;  // < priority_queue of pixel elements
 };
 
 void process_stack(const std::pair<int, int> p,
@@ -103,13 +120,16 @@ inline bool is_valid_pixel(const MatrixT & img, const std::pair<int, int> p) {
          (std::get<1>(p) >= 0 and
           static_cast<uint16_t>(std::get<1>(p)) < img.rows());
 }
+
+enum class State { new_region, neighbours };
+
 }  // namespace detail
 
 std::vector<Region> detect_regions(const blaze::DynamicMatrix<uint8_t> & in) {
   // Algorithm data structures
-  detail::Heap<std::pair<int, int>> _queue;
-  std::vector<bool>                 _accessible(in.columns() * in.rows());
-  std::vector<Region>               _stack;
+  detail::pixel_priority_queue<std::pair<int, int>> _queue;
+  std::vector<bool>   _accessible(in.columns() * in.rows());
+  std::vector<Region> _stack;
 
   // 1. Push dummy object on stack
   _stack.emplace_back(std::pair(-1, -1), 256);
@@ -121,14 +141,14 @@ std::vector<Region> detect_regions(const blaze::DynamicMatrix<uint8_t> & in) {
   _accessible[std::get<0>(cur_pixel) + in.rows() * std::get<1>(cur_pixel)] =
     true;
 
-  detail::State _state = detail::State::push_empty;
+  detail::State state = detail::State::new_region;
 
   while (true) {
-    switch (_state) {
-      case detail::State::push_empty:
+    switch (state) {
+      case detail::State::new_region:
         // 3. Push an empty component with cur_level on stack
         _stack.emplace_back(cur_pixel, cur_level);
-        _state = detail::State::neighbours;
+        state = detail::State::neighbours;
         break;
       case detail::State::neighbours: {
         for (int cols = -1; cols <= 1; ++cols) {
@@ -161,17 +181,17 @@ std::vector<Region> detect_regions(const blaze::DynamicMatrix<uint8_t> & in) {
                   std::get<1>(cur_pixel) = std::get<1>(neigh);
                   cur_level              = neigh_level;
                   // Back to 3.
-                  _state = detail::State::push_empty;
+                  state = detail::State::new_region;
                   break;
                 }
               }
             }
           }
           // for rows
-          if (_state == detail::State::push_empty) { break; }
+          if (state == detail::State::new_region) { break; }
         }
         // for cols
-        if (_state == detail::State::push_empty) { break; }
+        if (state == detail::State::new_region) { break; }
 
         // 5. Accumulate the current pixel to the component on top of the
         // stack

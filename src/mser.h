@@ -1,13 +1,7 @@
 #ifndef BALKEN__MSER_H__INCLUDED
 #define BALKEN__MSER_H__INCLUDED
 
-#include <cassert>
 #include <cstdint>
-#include <functional>
-#include <iostream>
-#include <queue>
-#include <stack>
-#include <utility>
 #include <vector>
 
 namespace balken {
@@ -28,10 +22,11 @@ struct Region
     ++area;
   }
 
-  // Members
-  int                              level;
-  int                              area{0};
-  std::vector<std::pair<int, int>> pixels;
+  // Public member variables
+  int                              level;   // < current level of region
+  int                              u[5];    // < image moments
+  int                              area;    // < area of region (equal to u_0)
+  std::vector<std::pair<int, int>> pixels;  // < list of pixels in area
 };
 
 std::vector<Region> detect_regions(const blaze::DynamicMatrix<uint8_t> & in);
