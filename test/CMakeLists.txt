@@ -27,7 +27,7 @@ find_package( blaze )
 if( blaze_FOUND )
   add_executable(UnitTests
     testsuite.cc
-    mser_test.cc
+    datamatrix_test.cc
     )
   target_include_directories(UnitTests PRIVATE .)
   target_link_libraries(UnitTests GTest::GTest GTest::Main balken blaze::blaze)
