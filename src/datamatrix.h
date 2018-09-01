@@ -108,9 +108,31 @@ auto extract_bitmap(const blaze::DynamicMatrix<uint8_t> & img) {
 
 std::string decode(const blaze::DynamicMatrix<uint8_t> & img);
 
-// Works only with 10x10
+/**
+ * Parse content of a codeword.
+ *
+ * Codewords are regions in the mosaic part of the datamatrix encoding a single
+ * byte of information. Perfect codewords are L-shaped, as illustrated below:
+ *
+ *   1 1 - - - - - -
+ *   1 1 1 2 2 - - -  single
+ *   1 1 1 2 2 2 - -  region   1 1
+ *   0 3 3 2 2 2 - -  ======>  1 1 1
+ *   0 3 3 3 3 4 4 -           1 1 1
+ *   - 3 3 3 3 4 4 4
+ *   - - - - - 4 4 4
+ *   - - - - - - - -
+ *
+ * Codewords at the border of the mosaic region are non-perfect in shape as
+ * they "wrap-over" to the other edge of the region.
+ *
+ * \param[in] corner  Bottom left corner of the codewords
+ * \param[in] img     Image
+ *
+ * \return  Decoded byte value
+ */
 template <class T>
-uint8_t decode_region(std::pair<int, int> corner, const T & img) {
+uint8_t decode_codeword(std::pair<int, int> corner, const T & img) {
   uint8_t val{0};
   uint8_t count{0};
 
