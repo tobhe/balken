@@ -136,7 +136,7 @@ uint8_t decode_codeword(std::pair<int, int> corner, const T & img) {
   uint8_t val{0};
   uint8_t count{0};
 
-#ifdef DEBGUG
+#ifdef DEBUG
   std::cout << "Image: " << img.rows() << "x" << img.columns() << '\n';
 #endif
 
