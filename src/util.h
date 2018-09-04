@@ -16,17 +16,32 @@ namespace util {
  */
 blaze::DynamicMatrix<uint8_t> load_image(std::string filename) {
   cimg_library::CImg<unsigned char> image(filename.c_str());
+  auto mat = blaze::DynamicMatrix<uint8_t>(image._height, image._width);
+  switch (image.depth()) {
+    case 3:
+      cimg_forXY(image, x, y) {
+        auto R = static_cast<int>(image(x, y, 0, 0));
+        auto G = static_cast<int>(image(x, y, 0, 1));
+        auto B = static_cast<int>(image(x, y, 0, 2));
 
-  auto mat = blaze::DynamicMatrix<uint8_t>(image._width, image._height);
-  cimg_forXY(image, x, y) {
-    auto R = static_cast<int>(image(x, y, 0, 0));
-    auto G = static_cast<int>(image(x, y, 0, 1));
-    auto B = static_cast<int>(image(x, y, 0, 2));
-
-    // Save grey value weighted by perceived brightness
-    mat(y, x) = static_cast<int>(0.299 * R + 0.587 * G + 0.114 * B);
+        // Save grey value weighted by perceived brightness
+        mat(y, x) = static_cast<int>(0.299 * R + 0.587 * G + 0.114 * B);
+      }
+      return mat;
+      break;
+    case 1:
+      cimg_forXY(image, x, y) {
+        // Save grey value weighted by perceived brightness
+        mat(y, x) = image(x, y, 0, 0) ? 0UL : 1UL;
+      }
+      return mat;
+      break;
+    default:
+      std::cout << "Error: image not handled\n";
+      break;
   }
-  return mat;
+  std::cout << "Return default" << std::endl;
+  return blaze::DynamicMatrix<uint8_t>();
 }
 
 /**
@@ -41,6 +56,16 @@ void view_image(blaze::DynamicMatrix<uint8_t> & img) {
   }
   cimg.display("Image");
 }
+
+inline void print_image(blaze::DynamicMatrix<uint8_t> & img) {
+  for (size_t i = 0; i < img.rows(); ++i) {
+    for (size_t j = 0; j < img.columns(); ++j) {
+      std::cout << (img(i, j) == 1 ? 1U : 0U) << ' ';
+    }
+    std::cout << std::endl;
+  }
+}
+
 
 }  // namespace util
 }  // namespace balken

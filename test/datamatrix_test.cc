@@ -152,12 +152,11 @@ TEST_F(DatamatrixTest, decode_region) {
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-
   };
 
   auto sub =
     blaze::submatrix(img, 1UL, 1UL, img.rows() - 2, img.columns() - 2);
 
-  ASSERT_EQ(255, datamatrix::decode_region(std::pair(0, 4), sub));
-  ASSERT_EQ(0, datamatrix::decode_region(std::pair(2, 2), sub));
+  ASSERT_EQ(255, datamatrix::decode_codeword(std::pair(0, 4), sub));
+  ASSERT_EQ(0, datamatrix::decode_codeword(std::pair(2, 2), sub));
 }
