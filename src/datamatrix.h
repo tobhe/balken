@@ -9,7 +9,10 @@
 // external
 #include <blaze/math/DynamicMatrix.h>
 
-namespace balken::datamatrix {
+namespace balken {
+namespace datamatrix {
+namespace detail {
+
 
 /**
  * Returns the size of a single module
@@ -25,7 +28,7 @@ int module_size(const std::pair<int, int> top_left,
     if (image(top_left.second, top_left.first + i) == 0) { return i; }
   }
   // Only if only black
-  return -1;
+  return 0;
 }
 
 
@@ -42,7 +45,7 @@ auto find_top_left_black(
   for (size_t i = 0UL; i < image.rows(); ++i) {
     for (size_t j = 0UL; j < image.columns(); ++j) {
       if (image(i, j) == 1) {
-        return std::pair(static_cast<int>(j), static_cast<int>(i));
+        return std::make_pair(static_cast<int>(j), static_cast<int>(i));
       }
     }
   }
@@ -57,57 +60,19 @@ auto find_top_left_black(
  *
  * \return  pair(x,y) or pair(-1,-1)
  */
-auto find_bottom_right_black(
-  const blaze::DynamicMatrix<uint8_t, blaze::rowMajor> & image) {
+template <class ImageT>
+auto find_bottom_right_black(const ImageT & image) {
   // Iterate over Matrix
   for (int i = static_cast<int>(image.rows() - 1); i >= 0; --i) {
     for (int j = static_cast<int>(image.columns() - 1); j >= 0; --j) {
-      if (image(i, j) == 1) { return std::pair(j, i); }
+      if (image(i, j) == 1) { return std::pair<int, int>(j, i); }
     }
   }
-  return std::pair<int, int>(-1, -1);
+  return std::make_pair(-1, -1);
 }
 
-/**
- * Extracts the actual bitmap of only the datamatrix from a
- * non-distorted or transformed binary image
- *
- * \param[in] img  Binary image
- *
- * \return  Matrix of inner data matrix section
- */
-auto extract_bitmap(const blaze::DynamicMatrix<uint8_t> & img) {
-  // find top left and bottom right pixels
-  auto top_left     = find_top_left_black(img);
-  auto bottom_right = find_bottom_right_black(img);
-
-  // find min and max
-  auto top    = top_left.second;
-  auto bottom = bottom_right.second;
-  auto left   = top_left.first;
-  auto right  = bottom_right.first;
-
-  auto mod_size = module_size(top_left, img);
-
-  auto matrix_width  = ((right + 1) - left) / mod_size;
-  auto matrix_height = ((bottom + 1) - top) / mod_size;
-  if (matrix_height <= 0 && matrix_width <= 0) {
-    // return empty
-    return blaze::DynamicMatrix<uint8_t>();
-  }
-
-  auto inner_mat = blaze::DynamicMatrix<uint8_t>(matrix_height, matrix_width);
-  for (int i = 0; i < static_cast<int>(inner_mat.rows()); ++i) {
-    for (int j = 0; j < static_cast<int>(inner_mat.columns()); ++j) {
-      inner_mat(i, j) = img(top + (mod_size / 2) + (i * mod_size),
-                            left + (mod_size / 2) + (j * mod_size));
-    }
-  }
-  return inner_mat;
-}
-
-template <class T>
-decltype(auto) access_wrap(int row, int column, T && img) {
+template <class CodeT>
+auto access_wrap(int row, int column, CodeT && img) {
   if (row < 0) {
     row += img.rows();
     column += 4 - ((img.rows() + 4) % 8);
@@ -142,8 +107,8 @@ decltype(auto) access_wrap(int row, int column, T && img) {
  *
  * \return  Decoded byte value
  */
-template <class T>
-uint8_t decode_codeword(std::pair<int, int> corner, const T & img) {
+template <class CodeT>
+uint8_t decode_codeword(std::pair<int, int> corner, const CodeT & img) {
   uint8_t val{0};
   uint8_t count{0};
 
@@ -155,7 +120,7 @@ uint8_t decode_codeword(std::pair<int, int> corner, const T & img) {
   int row    = corner.second;
 
   // Handle special corner cases
-  if (row == (img.rows() - 2) && column == 0) {
+  if (row == static_cast<int>(img.rows() - 2) && column == 0) {
     /* Corner case 2
      *   . . --------+
      *            4 3|
@@ -177,7 +142,7 @@ uint8_t decode_codeword(std::pair<int, int> corner, const T & img) {
     val |= (access_wrap(img.columns() - 1, 2, img) << 1);
     val |= (access_wrap(img.columns() - 1, 3, img) << 0);
 
-  } else if ((row == (img.rows() - 2)) and (column == 0) and
+  } else if ((row == static_cast<int>(img.rows() - 2)) and (column == 0) and
              (img.columns() % 4)) {
     /* Corner case 2
      *   . . --------+
@@ -199,7 +164,7 @@ uint8_t decode_codeword(std::pair<int, int> corner, const T & img) {
     val |= (access_wrap(img.columns() - 2, 0, img) << 2);
     val |= (access_wrap(img.columns() - 1, 0, img) << 1);
     val |= (access_wrap(img.columns() - 1, 1, img) << 0);
-  } else if ((row == (img.rows() - 2)) and (column == 0) and
+  } else if ((row == static_cast<int>(img.rows() - 2)) and (column == 0) and
              ((img.columns() % 8) == 4)) {
     /* Corner case 3
      *   . . --------+
@@ -221,7 +186,7 @@ uint8_t decode_codeword(std::pair<int, int> corner, const T & img) {
     val |= (access_wrap(img.columns() - 1, 1, img) << 2);
     val |= (access_wrap(img.columns() - 1, 2, img) << 1);
     val |= (access_wrap(img.columns() - 1, 3, img) << 0);
-  } else if ((row == img.rows() + 4) and (column == 2) and
+  } else if ((row == static_cast<int>(img.rows() + 4)) and (column == 2) and
              !(img.columns() % 8)) {
     /* Corner case 4
      *         ------+
@@ -266,37 +231,87 @@ uint8_t decode_codeword(std::pair<int, int> corner, const T & img) {
       }
     }
   }
-
   return val;
 }
 
-std::vector<uint8_t> decode(const blaze::DynamicMatrix<uint8_t> & img) {
+}  // namespace detail
+
+
+/**
+ * Extracts the actual bitmap of only the datamatrix from a
+ * non-distorted or transformed binary image
+ *
+ * \param[in] img  Binary image
+ *
+ * \return  Matrix of inner data matrix section
+ */
+template <class ImageT>
+auto from_image(const ImageT & img) {
+  // find top left and bottom right pixels
+  auto top_left     = detail::find_top_left_black(img);
+  auto bottom_right = detail::find_bottom_right_black(img);
+
+  // find min and max
+  auto top    = top_left.second;
+  auto bottom = bottom_right.second;
+  auto left   = top_left.first;
+  auto right  = bottom_right.first;
+
+  auto mod_size = detail::module_size(top_left, img);
+
+  auto matrix_width  = ((right + 1) - left) / mod_size;
+  auto matrix_height = ((bottom + 1) - top) / mod_size;
+  if (matrix_height <= 0 && matrix_width <= 0) {
+    // return empty
+    return blaze::DynamicMatrix<uint8_t>();
+  }
+
+  auto inner_mat = blaze::DynamicMatrix<uint8_t>(matrix_height, matrix_width);
+  for (int i = 0; i < static_cast<int>(inner_mat.rows()); ++i) {
+    for (int j = 0; j < static_cast<int>(inner_mat.columns()); ++j) {
+      inner_mat(i, j) = img(top + (mod_size / 2) + (i * mod_size),
+                            left + (mod_size / 2) + (j * mod_size));
+    }
+  }
+  return inner_mat;
+}
+
+/**
+ * Decode a datamatrix code and return a vector of bytes of the matrices
+ * content.
+ *
+ * \param[in] code  Bitmap of a datamatrix code
+ *
+ * \return  vector of bytes of matrix content
+ */
+template <class CodeT>
+std::vector<uint8_t> decode(const CodeT & code) {
   // Fix coordinates of codeword #1
   auto res = std::vector<uint8_t>();
 
   auto column = 0;
   auto row    = 4;
 
-  std::cout << "Columns: " << static_cast<int>(img.columns()) << std::endl;
+  std::cout << "Columns: " << static_cast<int>(code.columns()) << std::endl;
 
-  while (row < static_cast<int>(img.rows()) ||
-         column < static_cast<int>(img.columns())) {
-    if (row == static_cast<int>(img.rows() - 2) && column == 0) {
-      res.push_back(decode_codeword(std::pair(column, row), img));
-    } else if ((row == static_cast<int>(img.rows() - 2)) and (column == 0) and
-               (img.columns() % 4)) {
-      res.push_back(decode_codeword(std::pair(column, row), img));
+  while (row < static_cast<int>(code.rows()) ||
+         column < static_cast<int>(code.columns())) {
+    if (row == static_cast<int>(code.rows() - 2) && column == 0) {
+      res.push_back(detail::decode_codeword(std::pair<int, int>(column, row), code));
+    } else if ((row == static_cast<int>(code.rows() - 2)) and (column == 0) and
+               (code.columns() % 4)) {
+      res.push_back(detail::decode_codeword(std::pair<int, int>(column, row), code));
 
-    } else if ((row == static_cast<int>(img.rows() - 2)) and (column == 0) and
-               ((img.columns() % 8) == 4)) {
-      res.push_back(decode_codeword(std::pair(column, row), img));
-    } else if ((row == static_cast<int>(img.rows() + 4)) and (column == 2) and
-               !(img.columns() % 8)) {
-      res.push_back(decode_codeword(std::pair(column, row), img));
+    } else if ((row == static_cast<int>(code.rows() - 2)) and (column == 0) and
+               ((code.columns() % 8) == 4)) {
+      res.push_back(detail::decode_codeword(std::pair<int, int>(column, row), code));
+    } else if ((row == static_cast<int>(code.rows() + 4)) and (column == 2) and
+               !(code.columns() % 8)) {
+      res.push_back(detail::decode_codeword(std::pair<int, int>(column, row), code));
     }
 
-    while ((row >= 0) && column < static_cast<int>(img.columns())) {
-      res.push_back(decode_codeword(std::pair(column, row), img));
+    while ((row >= 0) && column < static_cast<int>(code.columns())) {
+      res.push_back(detail::decode_codeword(std::pair<int, int>(column, row), code));
       row -= 2;
       column += 2;
       std::cout << column << ", " << row << std::endl;
@@ -305,8 +320,8 @@ std::vector<uint8_t> decode(const blaze::DynamicMatrix<uint8_t> & img) {
     column += 3;
     std::cout << column << ", " << row << '\n';
 
-    while ((column >= 0) and row < static_cast<int>(img.rows())) {
-      res.push_back(decode_codeword(std::pair(column, row), img));
+    while ((column >= 0) and row < static_cast<int>(code.rows())) {
+      res.push_back(detail::decode_codeword(std::pair<int, int>(column, row), code));
       row += 2;
       column -= 2;
       std::cout << column << ", " << row << '\n';
@@ -319,6 +334,7 @@ std::vector<uint8_t> decode(const blaze::DynamicMatrix<uint8_t> & img) {
   return res;
 }
 
-}  // namespace balken::datamatrix
+}  // namespace datamatrix
+}  // namespace balken
 
 #endif

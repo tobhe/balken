@@ -11,7 +11,7 @@ int main(int argc, char * argv[]) {
   std::string filename = argv[1];
   auto        img      = util::load_image(filename);
 
-  auto bmp = datamatrix::extract_bitmap(img);
+  auto bmp = datamatrix::from_image(img);
   util::print_image(bmp);
 
   auto sub =

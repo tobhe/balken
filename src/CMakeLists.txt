@@ -1,17 +1,12 @@
-add_library( balken STATIC
-  ${CMAKE_SOURCE_DIR}/src/mser.cc
+add_library (balken INTERFACE)
+
+find_package (Threads REQUIRED)
+find_package (X11 REQUIRED)
+
+target_link_libraries (balken
+  INTERFACE Threads::Threads ${X11_LIBRARIES} blaze
   )
 
-find_package( blaze REQUIRED )
-find_package( Threads REQUIRED )
-find_package( X11 REQUIRED )
-
-target_link_libraries( balken
-  PRIVATE Threads::Threads ${X11_LIBRARIES}
-  PUBLIC blaze::blaze
-  )
-
-target_include_directories( balken
-  PUBLIC .
-  ${CMAKE_SOURCE_DIR}/thirdparty/CImg
+target_include_directories (balken
+  INTERFACE . ${CMAKE_SOURCE_DIR}/thirdparty/CImg
 )

@@ -40,7 +40,6 @@ blaze::DynamicMatrix<uint8_t> load_image(std::string filename) {
       std::cout << "Error: image not handled\n";
       break;
   }
-  std::cout << "Return default" << std::endl;
   return blaze::DynamicMatrix<uint8_t>();
 }
 
@@ -49,7 +48,8 @@ blaze::DynamicMatrix<uint8_t> load_image(std::string filename) {
  *
  * \param[in]  img  Matrix containing image
  */
-void view_image(blaze::DynamicMatrix<uint8_t> & img) {
+template <class MatrixT>
+void view_image(MatrixT & img) {
   cimg_library::CImg<uint8_t> cimg(img.columns(), img.rows(), 1, 1, true);
   for (size_t x = 0; x < img.columns(); ++x) {
     for (size_t y = 0; y < img.rows(); ++y) { cimg(x, y, 0, 0) = img(y, x); }
