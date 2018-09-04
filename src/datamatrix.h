@@ -106,7 +106,18 @@ auto extract_bitmap(const blaze::DynamicMatrix<uint8_t> & img) {
   return inner_mat;
 }
 
-std::string decode(const blaze::DynamicMatrix<uint8_t> & img);
+template <class T>
+decltype(auto) access_wrap(int row, int column, T && img) {
+  if (row < 0) {
+    row += img.rows();
+    column += 4 - ((img.rows() + 4) % 8);
+  }
+  if (column < 0) {
+    column += img.columns();
+    row += 4 - ((img.columns() + 4) % 8);
+  }
+  return img(row, column);
+}
 
 /**
  * Parse content of a codeword.
@@ -140,33 +151,173 @@ uint8_t decode_codeword(std::pair<int, int> corner, const T & img) {
   std::cout << "Image: " << img.rows() << "x" << img.columns() << '\n';
 #endif
 
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j) {
-      if (i == 2 && j == 0) { continue; }
+  int column = corner.first;
+  int row    = corner.second;
 
-      auto x = corner.first - j;
-      auto y = corner.second - i;
+  // Handle special corner cases
+  if (row == (img.rows() - 2) && column == 0) {
+    /* Corner case 2
+     *   . . --------+
+     *            4 3|
+     *              2|
+     * .            1|
+     * .            0.
+     * |             .
+     * |             .
+     * |             |
+     * |7 6 5        |
+     * +--- . . . ---+
+     */
+    val |= (access_wrap(0, img.rows() - 1, img) << 7);
+    val |= (access_wrap(1, img.rows() - 1, img) << 6);
+    val |= (access_wrap(2, img.rows() - 1, img) << 5);
+    val |= (access_wrap(img.columns() - 2, 0, img) << 4);
+    val |= (access_wrap(img.columns() - 1, 0, img) << 3);
+    val |= (access_wrap(img.columns() - 1, 1, img) << 2);
+    val |= (access_wrap(img.columns() - 1, 2, img) << 1);
+    val |= (access_wrap(img.columns() - 1, 3, img) << 0);
 
-      if (y < 0) {
-        y += img.rows();
-        x = (x + 8) % img.columns();
+  } else if ((row == (img.rows() - 2)) and (column == 0) and
+             (img.columns() % 4)) {
+    /* Corner case 2
+     *   . . --------+
+     *        4 3 2 1|
+     *              0|
+     * .             |
+     * .             .
+     * |             .
+     * |7            .
+     * |6            |
+     * |5            |
+     * +--- . . . ---+
+     */
+    val |= (access_wrap(0, img.rows() - 3, img) << 7);
+    val |= (access_wrap(0, img.rows() - 2, img) << 6);
+    val |= (access_wrap(0, img.rows() - 1, img) << 5);
+    val |= (access_wrap(img.columns() - 4, 0, img) << 4);
+    val |= (access_wrap(img.columns() - 3, 0, img) << 3);
+    val |= (access_wrap(img.columns() - 2, 0, img) << 2);
+    val |= (access_wrap(img.columns() - 1, 0, img) << 1);
+    val |= (access_wrap(img.columns() - 1, 1, img) << 0);
+  } else if ((row == (img.rows() - 2)) and (column == 0) and
+             ((img.columns() % 8) == 4)) {
+    /* Corner case 3
+     *   . . --------+
+     *            4 3|
+     *              2|
+     * .            1|
+     * .            0.
+     * |             .
+     * |7            .
+     * |6            |
+     * |5            |
+     * +--- . . . ---+
+     */
+    val |= (access_wrap(0, img.rows() - 3, img) << 7);
+    val |= (access_wrap(0, img.rows() - 2, img) << 6);
+    val |= (access_wrap(0, img.rows() - 1, img) << 5);
+    val |= (access_wrap(img.columns() - 2, 0, img) << 4);
+    val |= (access_wrap(img.columns() - 1, 0, img) << 3);
+    val |= (access_wrap(img.columns() - 1, 1, img) << 2);
+    val |= (access_wrap(img.columns() - 1, 2, img) << 1);
+    val |= (access_wrap(img.columns() - 1, 3, img) << 0);
+  } else if ((row == img.rows() + 4) and (column == 2) and
+             !(img.columns() % 8)) {
+    /* Corner case 4
+     *         ------+
+     *          5 4 3|
+     *          2 1 0|
+     *               |
+     * .             .
+     * .             .
+     * .             .
+     * |             |
+     * |7            |
+     * +--- . . . ---+
+     */
+    val |= (access_wrap(0, img.rows() - 1, img) << 7);
+    val |= (access_wrap(img.columns() - 1, img.rows() - 1, img) << 6);
+    val |= (access_wrap(img.columns() - 3, 0, img) << 5);
+    val |= (access_wrap(img.columns() - 2, 0, img) << 4);
+    val |= (access_wrap(img.columns() - 1, 0, img) << 3);
+    val |= (access_wrap(img.columns() - 3, 1, img) << 2);
+    val |= (access_wrap(img.columns() - 2, 2, img) << 1);
+    val |= (access_wrap(img.columns() - 1, 3, img) << 0);
+
+  } else {
+    // Default
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        if (i == 2 && j == 0) { continue; }
+
+        auto x = corner.first - j;
+        auto y = corner.second - i;
+
+        if (y < 0) {
+          y += img.rows();
+          x += 4 - ((img.rows() + 4) % 8);
+        }
+        if (x < 0) {
+          x += img.columns();
+          y += 4 - ((img.columns() + 4) % 8);
+        }
+
+        val |= (img(y, x) << count++);
       }
-      if (x < 0) {
-        x += img.columns();
-        y = (y + 8) % img.rows();
-      }
-
-#ifdef DEBUG
-      std::cout << '(' << x << ", " << y << ')' << '='
-                << static_cast<int>(img(y, x)) << '\n';
-#endif
-
-      val |= (img(y, x) << count++);
     }
   }
+
   return val;
 }
 
+std::vector<uint8_t> decode(const blaze::DynamicMatrix<uint8_t> & img) {
+  // Fix coordinates of codeword #1
+  auto res = std::vector<uint8_t>();
+
+  auto column = 0;
+  auto row    = 4;
+
+  std::cout << "Columns: " << static_cast<int>(img.columns()) << std::endl;
+
+  while (row < static_cast<int>(img.rows()) ||
+         column < static_cast<int>(img.columns())) {
+    if (row == static_cast<int>(img.rows() - 2) && column == 0) {
+      res.push_back(decode_codeword(std::pair(column, row), img));
+    } else if ((row == static_cast<int>(img.rows() - 2)) and (column == 0) and
+               (img.columns() % 4)) {
+      res.push_back(decode_codeword(std::pair(column, row), img));
+
+    } else if ((row == static_cast<int>(img.rows() - 2)) and (column == 0) and
+               ((img.columns() % 8) == 4)) {
+      res.push_back(decode_codeword(std::pair(column, row), img));
+    } else if ((row == static_cast<int>(img.rows() + 4)) and (column == 2) and
+               !(img.columns() % 8)) {
+      res.push_back(decode_codeword(std::pair(column, row), img));
+    }
+
+    while ((row >= 0) && column < static_cast<int>(img.columns())) {
+      res.push_back(decode_codeword(std::pair(column, row), img));
+      row -= 2;
+      column += 2;
+      std::cout << column << ", " << row << std::endl;
+    }
+    row += 1;
+    column += 3;
+    std::cout << column << ", " << row << '\n';
+
+    while ((column >= 0) and row < static_cast<int>(img.rows())) {
+      res.push_back(decode_codeword(std::pair(column, row), img));
+      row += 2;
+      column -= 2;
+      std::cout << column << ", " << row << '\n';
+    }
+    row += 3;
+    column += 1;
+    std::cout << column << ", " << row << '\n';
+  }
+
+  return res;
+}
 
 }  // namespace balken::datamatrix
 
