@@ -1,3 +1,6 @@
 [submodule "thirdparty/blaze"]
 	path = thirdparty/blaze
 	url = https://bitbucket.org/blaze-lib/blaze.git
+[submodule "thirdparty/CImg"]
+	path = thirdparty/CImg
+	url = https://framagit.org/dtschump/CImg.git
