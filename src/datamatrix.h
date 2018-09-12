@@ -292,26 +292,34 @@ std::vector<uint8_t> decode(const CodeT & code) {
   auto column = 0;
   auto row    = 4;
 
-  std::cout << "Columns: " << static_cast<int>(code.columns()) << std::endl;
+  auto inner =
+    blaze::submatrix(code, 1UL, 1UL, code.rows() - 2, code.columns() - 2);
 
-  while (row < static_cast<int>(code.rows()) ||
-         column < static_cast<int>(code.columns())) {
-    if (row == static_cast<int>(code.rows() - 2) && column == 0) {
-      res.push_back(detail::decode_codeword(std::pair<int, int>(column, row), code));
-    } else if ((row == static_cast<int>(code.rows() - 2)) and (column == 0) and
-               (code.columns() % 4)) {
-      res.push_back(detail::decode_codeword(std::pair<int, int>(column, row), code));
+  std::cout << "Columns: " << static_cast<int>(inner.columns()) << std::endl;
 
-    } else if ((row == static_cast<int>(code.rows() - 2)) and (column == 0) and
-               ((code.columns() % 8) == 4)) {
-      res.push_back(detail::decode_codeword(std::pair<int, int>(column, row), code));
-    } else if ((row == static_cast<int>(code.rows() + 4)) and (column == 2) and
-               !(code.columns() % 8)) {
-      res.push_back(detail::decode_codeword(std::pair<int, int>(column, row), code));
+  while (row < static_cast<int>(inner.rows()) ||
+         column < static_cast<int>(inner.columns())) {
+    if (row == static_cast<int>(inner.rows() - 2) && column == 0) {
+      res.push_back(
+        detail::decode_codeword(std::pair<int, int>(column, row), inner));
+    } else if ((row == static_cast<int>(inner.rows() - 2)) and
+               (column == 0) and (inner.columns() % 4)) {
+      res.push_back(
+        detail::decode_codeword(std::pair<int, int>(column, row), inner));
+
+    } else if ((row == static_cast<int>(inner.rows() - 2)) and
+               (column == 0) and ((inner.columns() % 8) == 4)) {
+      res.push_back(
+        detail::decode_codeword(std::pair<int, int>(column, row), inner));
+    } else if ((row == static_cast<int>(inner.rows() + 4)) and
+               (column == 2) and !(inner.columns() % 8)) {
+      res.push_back(
+        detail::decode_codeword(std::pair<int, int>(column, row), inner));
     }
 
-    while ((row >= 0) && column < static_cast<int>(code.columns())) {
-      res.push_back(detail::decode_codeword(std::pair<int, int>(column, row), code));
+    while ((row >= 0) && column < static_cast<int>(inner.columns())) {
+      res.push_back(
+        detail::decode_codeword(std::pair<int, int>(column, row), inner));
       row -= 2;
       column += 2;
       std::cout << column << ", " << row << std::endl;
@@ -320,8 +328,9 @@ std::vector<uint8_t> decode(const CodeT & code) {
     column += 3;
     std::cout << column << ", " << row << '\n';
 
-    while ((column >= 0) and row < static_cast<int>(code.rows())) {
-      res.push_back(detail::decode_codeword(std::pair<int, int>(column, row), code));
+    while ((column >= 0) and row < static_cast<int>(inner.rows())) {
+      res.push_back(
+        detail::decode_codeword(std::pair<int, int>(column, row), inner));
       row += 2;
       column -= 2;
       std::cout << column << ", " << row << '\n';
