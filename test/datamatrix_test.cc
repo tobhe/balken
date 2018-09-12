@@ -10,13 +10,15 @@
 // own
 #include "datamatrix.h"
 #include "datamatrix_test.h"
+#include "histogram.h"
 
 using namespace balken;
 
 TEST_F(DatamatrixTest, find) {
   auto img = blaze::DynamicMatrix<uint8_t, blaze::rowMajor>{{0, 1}, {0, 0}};
-  auto top_left     = datamatrix::detail::find_top_left_black(img);      // < (1, 0)
-  auto bottom_right = datamatrix::detail::find_bottom_right_black(img);  // < (1, 0)
+  auto top_left = datamatrix::detail::find_top_left_black(img);  // < (1, 0)
+  auto bottom_right =
+    datamatrix::detail::find_bottom_right_black(img);  // < (1, 0)
   ASSERT_EQ(top_left.first, 1);
   ASSERT_EQ(top_left.second, 0);
   ASSERT_EQ(bottom_right.first, 1);
@@ -86,7 +88,7 @@ TEST_F(DatamatrixTest, module_size) {
   ASSERT_EQ(pair2.second, 0);
 
   auto size2 = datamatrix::detail::module_size(pair2, img2);  // < -1
-  ASSERT_EQ(size2, -1);
+  ASSERT_EQ(size2, 0);
 }
 
 TEST_F(DatamatrixTest, find_inner) {
@@ -157,6 +159,29 @@ TEST_F(DatamatrixTest, decode) {
   auto sub =
     blaze::submatrix(img, 1UL, 1UL, img.rows() - 2, img.columns() - 2);
 
-  ASSERT_EQ(255, datamatrix::detail::decode_codeword(std::make_pair(0, 4), sub));
+  ASSERT_EQ(255,
+            datamatrix::detail::decode_codeword(std::make_pair(0, 4), sub));
   ASSERT_EQ(0, datamatrix::detail::decode_codeword(std::make_pair(2, 2), sub));
+}
+
+TEST_F(DatamatrixTest, histogram) {
+  // Test basic 4x4 matrix
+  auto img = blaze::DynamicMatrix<uint8_t, blaze::rowMajor>{
+    {1, 255},
+    {1, 1},
+  };
+
+  auto hist = histogram::detail::generate(img);
+
+  ASSERT_EQ(hist[255], 1);
+  ASSERT_EQ(hist[1], 3);
+  ASSERT_EQ(hist[0], 0);
+
+  auto acc = histogram::detail::accumulate(hist);
+
+  ASSERT_EQ(acc[0], 0);
+  ASSERT_EQ(acc[1], 3);
+  ASSERT_EQ(acc[2], 3);
+  ASSERT_EQ(acc[254], 3);
+  ASSERT_EQ(acc[255], 4);
 }
