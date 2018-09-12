@@ -173,15 +173,15 @@ TEST_F(DatamatrixTest, histogram) {
 
   auto hist = histogram::detail::generate(img);
 
-  ASSERT_EQ(hist[255], 1);
-  ASSERT_EQ(hist[1], 3);
+  ASSERT_EQ(hist[255], 0.25);
+  ASSERT_EQ(hist[1], 0.75);
   ASSERT_EQ(hist[0], 0);
 
   auto acc = histogram::detail::accumulate(hist);
 
   ASSERT_EQ(acc[0], 0);
-  ASSERT_EQ(acc[1], 3);
-  ASSERT_EQ(acc[2], 3);
-  ASSERT_EQ(acc[254], 3);
-  ASSERT_EQ(acc[255], 4);
+  ASSERT_EQ(acc[1], 0.75);
+  ASSERT_EQ(acc[2], 0.75);
+  ASSERT_EQ(acc[254], 0.75);
+  ASSERT_EQ(acc[255], 1);
 }
