@@ -9,7 +9,7 @@ add_executable(UnitTests
   datamatrix_test.cc
   )
 target_include_directories(UnitTests PRIVATE . ../src)
-target_link_libraries(UnitTests GTest::GTest GTest::Main blaze)
+target_link_libraries(UnitTests GTest::GTest GTest::Main blaze balken)
 
 gtest_discover_tests(UnitTests)
 
