@@ -17,22 +17,23 @@ namespace util {
 blaze::DynamicMatrix<uint8_t> load_image(std::string filename) {
   cimg_library::CImg<unsigned char> image(filename.c_str());
   auto mat = blaze::DynamicMatrix<uint8_t>(image._height, image._width);
-  switch (image.depth()) {
+
+  switch (image.spectrum()) {
     case 3:
       cimg_forXY(image, x, y) {
-        auto R = static_cast<int>(image(x, y, 0, 0));
-        auto G = static_cast<int>(image(x, y, 0, 1));
-        auto B = static_cast<int>(image(x, y, 0, 2));
+        auto R = static_cast<int>(image(x, y, 0));
+        auto G = static_cast<int>(image(x, y, 1));
+        auto B = static_cast<int>(image(x, y, 2));
 
         // Save grey value weighted by perceived brightness
-        mat(y, x) = static_cast<int>(0.299 * R + 0.587 * G + 0.114 * B);
+        mat(y, x) = static_cast<int>(0.33 * R + 0.33 * G + 0.33 * B);
       }
       return mat;
       break;
     case 1:
       cimg_forXY(image, x, y) {
         // Save grey value weighted by perceived brightness
-        mat(y, x) = image(x, y, 0, 0) ? 0UL : 1UL;
+        mat(y, x) = image(x, y, 0);
       }
       return mat;
       break;
@@ -50,11 +51,41 @@ blaze::DynamicMatrix<uint8_t> load_image(std::string filename) {
  */
 template <class MatrixT>
 void view_image(MatrixT & img) {
-  cimg_library::CImg<uint8_t> cimg(img.columns(), img.rows(), 1, 1, true);
+  cimg_library::CImg<uint8_t> cimg(img.columns(), img.rows(), 1, 1, 0);
   for (size_t x = 0; x < img.columns(); ++x) {
-    for (size_t y = 0; y < img.rows(); ++y) { cimg(x, y, 0, 0) = img(y, x); }
+    for (size_t y = 0; y < img.rows(); ++y) { cimg(x, y, 0) = img(y, x); }
   }
-  cimg.display("Image");
+  auto disp = cimg_library::CImgDisplay();
+  cimg.print();
+  disp.set_normalization(0);
+  cimg.display(disp);
+  while (!disp.is_closed()) {
+    disp.wait();
+    if (disp.button()) { break; }
+  }
+}
+
+template <class MatrixT>
+void compare(MatrixT & img, MatrixT & img2) {
+  cimg_library::CImg<uint8_t> cimg(img.columns(), img.rows(), 1, 1, 0);
+  for (size_t x = 0; x < img.columns(); ++x) {
+    for (size_t y = 0; y < img.rows(); ++y) { cimg(x, y, 0) = img(y, x); }
+  }
+
+  cimg_library::CImg<uint8_t> cimg2(img2.columns(), img2.rows(), 1, 1, 0);
+  for (size_t x = 0; x < img2.columns(); ++x) {
+    for (size_t y = 0; y < img2.rows(); ++y) { cimg2(x, y, 0) = img2(y, x); }
+  }
+
+  auto disp = cimg_library::CImgDisplay(1920, 1080, 0, 0, false, false);
+
+  cimg.print();
+  cimg2.print();
+  (cimg, cimg2).display(disp);
+  while (!disp.is_closed()) {
+    disp.wait();
+    if (disp.button()) { break; }
+  }
 }
 
 inline void print_image(blaze::DynamicMatrix<uint8_t> & img) {
@@ -65,7 +96,6 @@ inline void print_image(blaze::DynamicMatrix<uint8_t> & img) {
     std::cout << std::endl;
   }
 }
-
 
 }  // namespace util
 }  // namespace balken
