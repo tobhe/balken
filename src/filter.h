@@ -25,7 +25,7 @@ auto sobel_neg_45 =
 }  // namespace detail
 
 template <class ImageT, class KernelT>
-ImageT convolve(ImageT & img, KernelT && kernel) {
+ImageT convolve(const ImageT & img, const KernelT & kernel) {
   blaze::DynamicMatrix<uint8_t, blaze::rowMajor> ret(
     img.rows() - kernel.rows() + 1, img.columns() - kernel.columns() + 1);
 
@@ -42,54 +42,58 @@ ImageT convolve(ImageT & img, KernelT && kernel) {
   return ret;
 }
 
-/**
- * Somehow stupid because it only uses the kernels dimensions
- */
 template <class ImageT, class KernelT>
-ImageT erode(ImageT & img, KernelT && kernel) {
+ImageT erode(const ImageT & img, const KernelT & kernel) {
   blaze::DynamicMatrix<uint8_t, blaze::rowMajor> ret(
     img.rows() - kernel.rows() + 1, img.columns() - kernel.columns() + 1, 255);
 
   for (size_t i = 0UL; i < ret.rows(); ++i) {
     for (size_t j = 0UL; j < ret.columns(); ++j) {
+      int acc{false};
       for (size_t h = i; h < i + kernel.rows(); ++h) {
         for (size_t w = j; w < j + kernel.columns(); ++w) {
-          if (img(h, w) != 255) { ret(i, j) = 0; }
+          if ((kernel(h - i, w - j) == 1) && (img(h, w) == 255)) {
+            acc = true;
+          }
         }
       }
+      ret(i, j) = acc ? 255 : 0;
     }
   }
   return ret;
 }
 
 
-/**
- * Somehow stupid because it only uses the kernels dimensions
- */
 template <class ImageT, class KernelT>
-ImageT dilate(ImageT & img, KernelT && kernel) {
+ImageT dilate(const ImageT & img, const KernelT & kernel) {
   blaze::DynamicMatrix<uint8_t, blaze::rowMajor> ret(
     img.rows() - kernel.rows() + 1, img.columns() - kernel.columns() + 1, 0);
 
   for (size_t i = 0UL; i < ret.rows(); ++i) {
     for (size_t j = 0UL; j < ret.columns(); ++j) {
+      bool acc{true};
       for (size_t h = i; h < i + kernel.rows(); ++h) {
         for (size_t w = j; w < j + kernel.columns(); ++w) {
-          if (img(h, w) != 0) { ret(i, j) = kernel(h - i, w - j) * 255; }
+          if ((kernel(h - i, w - j) == 1) && (img(h, w) == 255)) {
+            acc = acc && true;
+          } else {
+            acc = false;
+          }
         }
       }
+      ret(i, j) = acc ? 255 : 0;
     }
   }
   return ret;
 }
 
 template <class ImageT>
-decltype(auto) gauss(ImageT && img) {
+decltype(auto) gauss(const ImageT & img) {
   return convolve(img, detail::gauss_3x3);
 }
 
 template <class ImageT>
-auto binary(ImageT & img, int threshold) {
+auto binary(ImageT & img, const int threshold) {
   for (size_t i = 0UL; i < img.rows(); ++i) {
     for (size_t j = 0UL; j < img.columns(); ++j) {
       img(i, j) = abs(img(i, j)) > threshold ? 255 : 0;
@@ -98,10 +102,18 @@ auto binary(ImageT & img, int threshold) {
   return img;
 }
 
+template <class ImageT, class KernelT>
+auto open(const ImageT & img, const KernelT & kernel) {
+  return dilate(erode(img, kernel), kernel);
+}
+
 
 template <class ImageT>
-auto find_regions(ImageT & img, int threshold, int N, int M) {
-  auto gauss_img    = gauss(img);
+auto find_regions(const ImageT & img,
+                  const int      threshold,
+                  const int      N,
+                  const int      M) {
+  auto gauss_img    = gauss(gauss(img));
   auto sobel_x_img  = convolve(gauss_img, detail::sobel_x);
   auto sobel_y_img  = convolve(gauss_img, detail::sobel_y);
   auto sobel_tr_img = convolve(gauss_img, detail::sobel_45);
@@ -112,34 +124,19 @@ auto find_regions(ImageT & img, int threshold, int N, int M) {
   auto bin_tr = binary(sobel_tr_img, threshold);
   auto bin_br = binary(sobel_br_img, threshold);
 
-  auto dil_x = filter::dilate(
-    bin_x, blaze::DynamicMatrix<uint8_t>(static_cast<uint32_t>(N), 2UL, 1));
-  auto dil_y = filter::dilate(
-    bin_y, blaze::DynamicMatrix<uint8_t>(2UL, static_cast<uint32_t>(N), 1));
-
-  auto tr_dil_mat = blaze::DynamicMatrix<uint8_t>(N, N);
-  for (size_t i = 0UL; i < tr_dil_mat.rows(); ++i) {
-    for (size_t j = 0UL; j < tr_dil_mat.columns(); ++j) {
-      if (i == j) { tr_dil_mat(i, j) = 1; }
-    }
-  }
-  auto br_dil_mat =
-    dilate(tr_dil_mat, blaze::DynamicMatrix<uint8_t>(3UL, 3UL, 1));
-
-  auto er_mat = blaze::DynamicMatrix<uint8_t>(
+  auto kernel = blaze::DynamicMatrix<uint8_t>(
     static_cast<uint32_t>(M), static_cast<uint32_t>(M), 1);
 
-  auto er_x  = erode(dil_x, er_mat);
-  auto er_y  = erode(dil_y, er_mat);
-  auto er_tr = erode(dil_y, er_mat);
-  auto er_br = erode(dil_y, er_mat);
+
+  auto dil_x = open(bin_x, kernel);
+  auto dil_y = open(bin_y, kernel);
 
   blaze::DynamicMatrix<uint8_t, blaze::rowMajor> ret(
-    er_x.rows(), er_x.columns(), 0);
+    dil_x.rows(), dil_x.columns(), 0);
 
   for (size_t i = 0UL; i < ret.rows(); ++i) {
     for (size_t j = 0UL; j < ret.columns(); ++j) {
-      ret(i, j) = (er_y(i, j) == 255) and (er_x(i, j) == 255) ? 255 : 0;
+      ret(i, j) = (dil_y(i, j) == 255) and (dil_x(i, j) == 255) ? 255 : 0;
     }
   }
 
