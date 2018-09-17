@@ -15,6 +15,8 @@ auto gauss_3x3 =
 
 auto sobel_x =
   blaze::StaticMatrix<float, 3UL, 3UL>{{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
+auto sobel_x_8 = blaze::StaticMatrix<float, 3UL, 3UL>{
+  {-0.125, 0, 0.125}, {-0.25, 0, 0.25}, {-0.125, 0, 0.125}};
 auto sobel_y =
   blaze::StaticMatrix<float, 3UL, 3UL>{{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
 auto sobel_45 =
@@ -107,14 +109,98 @@ auto open(const ImageT & img, const KernelT & kernel) {
   return dilate(erode(img, kernel), kernel);
 }
 
+int orientation(std::pair<int, int> p,
+                std::pair<int, int> q,
+                std::pair<int, int> r) {
+  int val = (q.second - p.first) * (r.second - q.second) -
+            (q.second - p.second) * (r.first - q.first);
+
+  if (val == 0) return 0;    // colinear
+  return (val > 0) ? 1 : 2;  // clock or counterclock wise
+}
+
+template <class PointsT>
+auto convex_hull(const PointsT & points) {
+  auto hull = std::vector<std::pair<int, int>>();
+  auto left = std::pair<int, int>(500, 500);
+
+  for (auto i : points) {
+    if (i.second < left.second) { left = i; }
+  }
+
+  auto p = int{1};
+  auto q = int{};
+  do {
+    hull.push_back(points[p]);
+
+    q = (p + 1) % points.size();
+    for (int i = 0; i < points.size(); i++) {
+      // If i is more counterclockwise than current q, then
+      // update q
+      if (orientation(points[p], points[i], points[q]) == 2) { q = i; }
+    }
+
+    p = q;
+  } while (p != 1);
+  return hull;
+}
 
 template <class ImageT>
-auto find_regions(const ImageT & img,
-                  const int      threshold,
-                  const int      N,
-                  const int      M) {
+auto cluster_by_threshold(const ImageT & img, uint8_t threshold) {
+  // cpy image to mark already visited
+  auto ids = blaze::DynamicMatrix<uint8_t>(img.rows(), img.columns(), 0UL);
+
+  std::cout << "rows: " << img.rows() << ", " << ids.rows() << '\n';
+  std::cout << "columns: " << img.columns() << ", " << ids.columns() << '\n';
+  // List of pairs (i,j)
+  auto region_list = std::vector<std::vector<std::pair<int, int>>>();
+
+  // Go over all pixels
+  for (size_t i = 0UL; i < img.rows(); ++i) {
+    for (size_t j = 0UL; j < img.columns(); ++j) {
+      // Get white pixel
+      if (img(i, j) > threshold && ids(i, j) == 0) {
+        region_list.emplace_back();
+
+        // Traverse
+        auto stack = std::vector<std::pair<int, int>>();
+        stack.emplace_back(i, j);
+        auto id = 1;
+        while (!stack.empty()) {
+          auto cur = stack.back();
+          stack.pop_back();
+
+          if (img(cur.first, cur.second) == 0 ||
+              ids(cur.first, cur.second) > 0) {
+            continue;
+          }
+
+          ids(cur.first, cur.second) = id;
+          region_list.back().push_back(cur);
+
+          if (cur.second > 0) {
+            stack.emplace_back(cur.first, cur.second - 1);
+          }
+          if (cur.second < (static_cast<int>(ids.columns()) - 1)) {
+            stack.emplace_back(cur.first, cur.second + 1);
+          }
+          if (cur.first > 0) { stack.emplace_back(cur.first - 1, cur.second); }
+          if (cur.first < (static_cast<int>(ids.rows()) - 1)) {
+            stack.emplace_back(cur.first + 1, cur.second);
+          }
+        }
+        ++id;
+      }
+    }
+  }
+
+  return region_list;
+}
+
+template <class ImageT>
+auto find_regions(const ImageT & img, const int threshold, const int M) {
   auto gauss_img    = gauss(gauss(img));
-  auto sobel_x_img  = convolve(gauss_img, detail::sobel_x);
+  auto sobel_x_img  = convolve(gauss_img, detail::sobel_x_8);
   auto sobel_y_img  = convolve(gauss_img, detail::sobel_y);
   auto sobel_tr_img = convolve(gauss_img, detail::sobel_45);
   auto sobel_br_img = convolve(gauss_img, detail::sobel_neg_45);
@@ -140,7 +226,7 @@ auto find_regions(const ImageT & img,
     }
   }
 
-  return ret;
+  return dil_x;
 }
 
 }  // namespace filter
