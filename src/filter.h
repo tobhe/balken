@@ -3,6 +3,7 @@
 
 #include <blaze/math/DynamicMatrix.h>
 #include <blaze/math/StaticMatrix.h>
+#include <iostream>
 
 namespace balken {
 namespace filter {
@@ -46,20 +47,23 @@ ImageT convolve(const ImageT & img, const KernelT & kernel) {
 
 template <class ImageT, class KernelT>
 ImageT erode(const ImageT & img, const KernelT & kernel) {
-  blaze::DynamicMatrix<uint8_t, blaze::rowMajor> ret(
-    img.rows() - kernel.rows() + 1, img.columns() - kernel.columns() + 1, 255);
+  auto ret = blaze::DynamicMatrix<uint8_t, blaze::rowMajor>(
+    img.rows(), img.columns(), 0UL);
 
-  for (size_t i = 0UL; i < ret.rows(); ++i) {
-    for (size_t j = 0UL; j < ret.columns(); ++j) {
-      int acc{false};
-      for (size_t h = i; h < i + kernel.rows(); ++h) {
-        for (size_t w = j; w < j + kernel.columns(); ++w) {
-          if ((kernel(h - i, w - j) == 1) && (img(h, w) == 255)) {
-            acc = true;
+  size_t floor_half_h = floor(kernel.rows() / 2);
+  size_t floor_half_w = floor(kernel.columns() / 2);
+
+  for (size_t i = 0; i < img.rows() - kernel.rows(); ++i) {
+    for (size_t j = 0; j < img.columns() - kernel.columns(); ++j) {
+      uint8_t min = 255;
+      for (size_t h = 0; h < kernel.rows(); ++h) {
+        for (size_t w = 0; w < kernel.rows(); ++w) {
+          if ((kernel(h, w) == 1) && (img(i + h, j + w) < min)) {
+            min = img(i + h, j + w);
           }
         }
       }
-      ret(i, j) = acc ? 255 : 0;
+      ret(i + floor_half_h, j + floor_half_w) = min;
     }
   }
   return ret;
@@ -68,22 +72,23 @@ ImageT erode(const ImageT & img, const KernelT & kernel) {
 
 template <class ImageT, class KernelT>
 ImageT dilate(const ImageT & img, const KernelT & kernel) {
-  blaze::DynamicMatrix<uint8_t, blaze::rowMajor> ret(
-    img.rows() - kernel.rows() + 1, img.columns() - kernel.columns() + 1, 0);
+  auto ret = blaze::DynamicMatrix<uint8_t, blaze::rowMajor>(
+    img.rows(), img.columns(), 0UL);
 
-  for (size_t i = 0UL; i < ret.rows(); ++i) {
-    for (size_t j = 0UL; j < ret.columns(); ++j) {
-      bool acc{true};
-      for (size_t h = i; h < i + kernel.rows(); ++h) {
-        for (size_t w = j; w < j + kernel.columns(); ++w) {
-          if ((kernel(h - i, w - j) == 1) && (img(h, w) == 255)) {
-            acc = acc && true;
-          } else {
-            acc = false;
+  size_t floor_half_h = floor(kernel.rows() / 2);
+  size_t floor_half_w = floor(kernel.columns() / 2);
+
+  for (size_t i = 0; i < img.rows() - kernel.rows(); ++i) {
+    for (size_t j = 0; j < img.columns() - kernel.columns(); ++j) {
+      uint8_t max{0};
+      for (size_t h = 0; h < kernel.rows(); ++h) {
+        for (size_t w = 0; w < kernel.rows(); ++w) {
+          if ((kernel(h, w) == 1) && (img(i + h, j + w) > max)) {
+            max = img(i + h, j + w);
           }
         }
       }
-      ret(i, j) = acc ? 255 : 0;
+      ret(i + floor_half_h, j + floor_half_w) = max;
     }
   }
   return ret;
@@ -95,7 +100,7 @@ decltype(auto) gauss(const ImageT & img) {
 }
 
 template <class ImageT>
-auto binary(ImageT & img, const int threshold) {
+auto binarize(ImageT && img, const int threshold) {
   for (size_t i = 0UL; i < img.rows(); ++i) {
     for (size_t j = 0UL; j < img.columns(); ++j) {
       img(i, j) = abs(img(i, j)) > threshold ? 255 : 0;
@@ -107,6 +112,11 @@ auto binary(ImageT & img, const int threshold) {
 template <class ImageT, class KernelT>
 auto open(const ImageT & img, const KernelT & kernel) {
   return dilate(erode(img, kernel), kernel);
+}
+
+template <class ImageT, class KernelT>
+auto close(const ImageT & img, const KernelT & kernel) {
+  return erode(dilate(img, kernel), kernel);
 }
 
 int orientation(std::pair<int, int> p,
@@ -150,8 +160,6 @@ auto cluster_by_threshold(const ImageT & img, uint8_t threshold) {
   // cpy image to mark already visited
   auto ids = blaze::DynamicMatrix<uint8_t>(img.rows(), img.columns(), 0UL);
 
-  std::cout << "rows: " << img.rows() << ", " << ids.rows() << '\n';
-  std::cout << "columns: " << img.columns() << ", " << ids.columns() << '\n';
   // List of pairs (i,j)
   auto region_list = std::vector<std::vector<std::pair<int, int>>>();
 
@@ -205,10 +213,10 @@ auto find_regions(const ImageT & img, const int threshold, const int M) {
   auto sobel_tr_img = convolve(gauss_img, detail::sobel_45);
   auto sobel_br_img = convolve(gauss_img, detail::sobel_neg_45);
 
-  auto bin_x  = binary(sobel_x_img, threshold);
-  auto bin_y  = binary(sobel_y_img, threshold);
-  auto bin_tr = binary(sobel_tr_img, threshold);
-  auto bin_br = binary(sobel_br_img, threshold);
+  auto bin_x  = binarize(sobel_x_img, threshold);
+  auto bin_y  = binarize(sobel_y_img, threshold);
+  auto bin_tr = binarize(sobel_tr_img, threshold);
+  auto bin_br = binarize(sobel_br_img, threshold);
 
   auto kernel = blaze::DynamicMatrix<uint8_t>(
     static_cast<uint32_t>(M), static_cast<uint32_t>(M), 1);
