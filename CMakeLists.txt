@@ -21,4 +21,6 @@ set(CMAKE_MODULE_PATH
 add_subdirectory(src)
 add_subdirectory(test)
 add_subdirectory(example)
+add_subdirectory(benchmark)
 add_subdirectory(thirdparty/blaze)
+add_subdirectory(thirdparty/celero)

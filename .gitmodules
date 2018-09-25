@@ -4,3 +4,6 @@
 [submodule "thirdparty/CImg"]
 	path = thirdparty/CImg
 	url = https://framagit.org/dtschump/CImg.git
+[submodule "thirdparty/celero"]
+	path = thirdparty/celero
+	url = https://github.com/DigitalInBlue/Celero
