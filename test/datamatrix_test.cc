@@ -1,3 +1,11 @@
+/*
+ * Copyright (C) 2018 Tobias Heider <heidert@nm.ifi.lmu.de>
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser
+ * General Public License v3 See the file LICENSE in the top level
+ * directory for more details.
+ */
+
 // cpp
 #include <cstdint>
 #include <iostream>
@@ -11,6 +19,7 @@
 #include "datamatrix.h"
 #include "datamatrix_test.h"
 #include "histogram.h"
+#include "image.h"
 
 using namespace balken;
 
@@ -184,4 +193,37 @@ TEST_F(DatamatrixTest, histogram) {
   ASSERT_EQ(acc[2], 0.75);
   ASSERT_EQ(acc[254], 0.75);
   ASSERT_EQ(acc[255], 1);
+}
+
+TEST_F(DatamatrixTest, image) {
+  // Test basic 4x4 matrix
+  auto mat = blaze::DynamicMatrix<uint8_t, blaze::rowMajor>{
+    {1, 255},
+    {2, 3},
+  };
+
+  auto img = image::Image<uint8_t>(mat);
+
+  // Element Access
+  ASSERT_EQ(img[0][0], 1);
+  ASSERT_EQ(img[0][1], 255);
+  ASSERT_EQ(img[1][0], 2);
+  ASSERT_EQ(img[1][1], 3);
+
+  // Size
+  ASSERT_EQ(img.size(), 4);
+
+  auto fwd = image::Image<uint8_t>{
+    {1, 255},
+    {2, 3},
+  };
+
+  // Element Access
+  ASSERT_EQ(fwd[0][0], 1);
+  ASSERT_EQ(fwd[0][1], 255);
+  ASSERT_EQ(fwd[1][0], 2);
+  ASSERT_EQ(fwd[1][1], 3);
+
+  // Size
+  ASSERT_EQ(fwd.size(), 4);
 }

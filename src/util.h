@@ -1,9 +1,20 @@
+/*
+ * Copyright (C) 2018 Tobias Heider <heidert@nm.ifi.lmu.de>
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser
+ * General Public License v3 See the file LICENSE in the top level
+ * directory for more details.
+ */
+
 #ifndef BALKEN__UTIL_H__INCLUDED
 #define BALKEN__UTIL_H__INCLUDED
 
 // external
 #include <CImg.h>
 #include <blaze/math/DynamicMatrix.h>
+
+// own
+#include "image.h"
 
 namespace balken {
 namespace util {
@@ -15,27 +26,26 @@ namespace util {
  * \return     Matrix containing image
  */
 blaze::DynamicMatrix<uint8_t> load_image(std::string filename) {
-  cimg_library::CImg<unsigned char> image(filename.c_str());
-  auto mat = blaze::DynamicMatrix<uint8_t>(image._height, image._width);
+  auto cimg = cimg_library::CImg<unsigned char>(filename.c_str());
+  auto img  = blaze::DynamicMatrix<uint8_t>(cimg._height, cimg._width);
 
-  switch (image.spectrum()) {
+  switch (cimg.spectrum()) {
     case 3:
-      cimg_forXY(image, x, y) {
-        auto R = static_cast<int>(image(x, y, 0));
-        auto G = static_cast<int>(image(x, y, 1));
-        auto B = static_cast<int>(image(x, y, 2));
+      cimg_forXY(cimg, x, y) {
+        auto R = static_cast<int>(cimg(x, y, 0));
+        auto G = static_cast<int>(cimg(x, y, 1));
+        auto B = static_cast<int>(cimg(x, y, 2));
 
-        // Save grey value weighted by perceived brightness
-        mat(y, x) = static_cast<int>(0.33 * R + 0.33 * G + 0.33 * B);
+        img(y, x) = static_cast<int>(0.33 * R + 0.33 * G + 0.33 * B);
       }
-      return mat;
+      return img;
       break;
     case 1:
-      cimg_forXY(image, x, y) {
+      cimg_forXY(cimg, x, y) {
         // Save grey value weighted by perceived brightness
-        mat(y, x) = image(x, y, 0);
+        img(y, x) = cimg(x, y, 0);
       }
-      return mat;
+      return img;
       break;
     default:
       std::cout << "Error: image not handled\n";
@@ -49,8 +59,8 @@ blaze::DynamicMatrix<uint8_t> load_image(std::string filename) {
  *
  * \param[in]  img  Matrix containing image
  */
-template <class MatrixT>
-void view_image(MatrixT & img) {
+template <class ImageT>
+void view_image(const ImageT & img) {
   cimg_library::CImg<uint8_t> cimg(img.columns(), img.rows(), 1, 1, 0);
   for (size_t x = 0; x < img.columns(); ++x) {
     for (size_t y = 0; y < img.rows(); ++y) { cimg(x, y, 0) = img(y, x); }
@@ -65,8 +75,8 @@ void view_image(MatrixT & img) {
   }
 }
 
-template <class MatrixT>
-void compare(MatrixT & img, MatrixT & img2) {
+template <class ImageT1, class ImageT2>
+void compare(const ImageT1 & img, const ImageT2 & img2) {
   cimg_library::CImg<uint8_t> cimg(img.columns(), img.rows(), 1, 1, 0);
   for (size_t x = 0; x < img.columns(); ++x) {
     for (size_t y = 0; y < img.rows(); ++y) { cimg(x, y, 0) = img(y, x); }
@@ -88,7 +98,8 @@ void compare(MatrixT & img, MatrixT & img2) {
   }
 }
 
-inline void print_image(blaze::DynamicMatrix<uint8_t> & img) {
+template <class ImageT>
+inline void print_image(const ImageT & img) {
   for (size_t i = 0; i < img.rows(); ++i) {
     for (size_t j = 0; j < img.columns(); ++j) {
       std::cout << (img(i, j) == 1 ? 1U : 0U) << ' ';
