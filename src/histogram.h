@@ -57,10 +57,7 @@ public:
 public:
   grey_normalized_view() = delete;
   grey_normalized_view(const ImageT & img)
-   : _img(img), _max(blaze::max(img)), _min(blaze::min(img)) {
-    std::cout << "MAX: " << static_cast<unsigned>(_max)
-              << " MIN: " << static_cast<unsigned>(_min) << '\n';
-  }
+   : _img(img), _max(blaze::max(img)), _min(blaze::min(img)) {}
   ~grey_normalized_view() = default;
 
   // Element Access
@@ -88,22 +85,24 @@ private:
 };
 
 template <class ImageT>
+auto make_normalized(ImageT && img) {
+  return grey_normalized_view<typename std::remove_reference<ImageT>::type>(
+    std::forward<ImageT>(img));
+}
+
+template <class ImageT>
 auto equalize(ImageT & img) {
   auto hist     = detail::generate(img);
   auto cum_hist = detail::accumulate(hist);
 
   for (size_t i = 0UL; i < img.rows(); ++i) {
     for (size_t j = 0UL; j < img.columns(); ++j) {
-      img(i, j) = floor(255 * cum_hist[img(i, j)]);
+      img(i, j) =
+        floor(std::numeric_limits<typename ImageT::ElementType>::max() *
+              cum_hist[img(i, j)]);
     }
   }
   return img;
-}
-
-template <class ImageT>
-auto make_normalized(ImageT && img) {
-  return grey_normalized_view<typename std::remove_reference<ImageT>::type>(
-    std::forward<ImageT>(img));
 }
 
 template <class ImageT>
