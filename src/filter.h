@@ -37,15 +37,18 @@ auto sobel_neg_45 =
 
 template <class ImageT, class KernelT>
 ImageT convolve(const ImageT & img, const KernelT & kernel) {
-  blaze::DynamicMatrix<uint8_t, blaze::rowMajor> ret(
-    img.rows() - kernel.rows() + 1, img.columns() - kernel.columns() + 1);
+  blaze::DynamicMatrix<uint8_t, blaze::rowMajor> ret(img.rows(),
+                                                     img.columns());
 
-  for (size_t i = 0UL; i < ret.rows(); ++i) {
-    for (size_t j = 0UL; j < ret.columns(); ++j) {
-      for (size_t h = i; h < i + kernel.rows(); ++h) {
-        for (size_t w = j; w < j + kernel.columns(); ++w) {
-          ret(i, j) += static_cast<uint8_t>(kernel(h - i, w - j) *
-                                            static_cast<float>(img(h, w)));
+  size_t floor_half_h = floor(kernel.rows() / 2);
+  size_t floor_half_w = floor(kernel.columns() / 2);
+
+  for (size_t i = 0UL; i < ret.rows() - kernel.rows(); ++i) {
+    for (size_t j = 0UL; j < ret.columns() - kernel.columns(); ++j) {
+      for (size_t h = i; h < kernel.rows(); ++h) {
+        for (size_t w = j; w < kernel.columns(); ++w) {
+          ret(i + floor_half_h, j + floor_half_w) += static_cast<uint8_t>(
+            kernel(i, j) * static_cast<float>(img(h + i, w + j)));
         }
       }
     }
