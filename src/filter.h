@@ -36,7 +36,12 @@ auto sobel_neg_45 =
 }  // namespace detail
 
 template <class ImageT, class KernelT>
-ImageT convolve(const ImageT & img, const KernelT & kernel) {
+blaze::DynamicMatrix<uint8_t, blaze::rowMajor> convolve(
+  const ImageT & img, const KernelT & kernel) {
+  // Assert odd kernel dimensions
+  assert(kernel.rows() % 2 != 0);
+  assert(kernel.columns() % 2 != 0);
+
   blaze::DynamicMatrix<uint8_t, blaze::rowMajor> ret(img.rows(),
                                                      img.columns());
 
@@ -57,7 +62,12 @@ ImageT convolve(const ImageT & img, const KernelT & kernel) {
 }
 
 template <class ImageT, class KernelT>
-ImageT erode(const ImageT & img, const KernelT & kernel) {
+blaze::DynamicMatrix<uint8_t, blaze::rowMajor> erode(const ImageT &  img,
+                                                     const KernelT & kernel) {
+  // Assert odd kernel dimensions
+  assert(kernel.rows() % 2 != 0);
+  assert(kernel.columns() % 2 != 0);
+
   auto ret = blaze::DynamicMatrix<uint8_t, blaze::rowMajor>(
     img.rows(), img.columns(), 0UL);
 
@@ -82,7 +92,12 @@ ImageT erode(const ImageT & img, const KernelT & kernel) {
 
 
 template <class ImageT, class KernelT>
-ImageT dilate(const ImageT & img, const KernelT & kernel) {
+blaze::DynamicMatrix<uint8_t, blaze::rowMajor> dilate(const ImageT &  img,
+                                                      const KernelT & kernel) {
+  // Assert odd kernel dimensions
+  assert(kernel.rows() % 2 != 0);
+  assert(kernel.columns() % 2 != 0);
+
   auto ret = blaze::DynamicMatrix<uint8_t, blaze::rowMajor>(
     img.rows(), img.columns(), 0UL);
 
