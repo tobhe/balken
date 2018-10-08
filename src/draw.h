@@ -12,6 +12,7 @@
 #include <util.h>
 #include <cmath>
 #include <vector>
+#include "types.h"
 
 namespace balken {
 namespace draw {
@@ -62,6 +63,16 @@ void draw_line(ImageT & img, PointT p0, PointT p1, const int val) {
       y += step;
       error += dx;
     }
+  }
+}
+
+template <class ImageT, class ShapeT>
+void draw_shape(ImageT & img, ShapeT shape, uint8_t val) {
+  for (auto i = size_t{1}; i < shape.size(); ++i) {
+    draw_line(img,
+              std::make_pair(shape[i - 1].i, shape[i - 1].j),
+              std::make_pair(shape[i].i, shape[i].j),
+              val);
   }
 }
 
