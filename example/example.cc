@@ -1,24 +1,61 @@
+/*
+ * Copyright (C) 2018 Tobias Heider <heidert@nm.ifi.lmu.de>
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser
+ * General Public License v3 See the file LICENSE in the top level
+ * directory for more details.
+ */
+
 #include <blaze/math/DynamicMatrix.h>
 #include <iostream>
 
 #include <string>
 #include "datamatrix.h"
+#include "draw.h"
+#include "edt.h"
+#include "filter.h"
+#include "histogram.h"
+#include "morph.h"
+#include "regions.h"
 #include "util.h"
 
 using namespace balken;
 
-int main(int argc, char * argv[]) {
-  std::string filename = argv[1];
-  auto        img      = util::load_image(filename);
+int main(int, char * argv[]) {
+  std::string filename  = argv[1];
+  int         threshold = atoi(argv[2]);
+  int         SE1       = atoi(argv[3]);
+  int         SE2       = atoi(argv[4]);
+  int         SE3       = atoi(argv[5]);
 
-  auto bmp = datamatrix::from_image(img);
-  util::print_image(bmp);
+  auto se1 = blaze::DynamicMatrix<uint8_t>(
+    static_cast<size_t>(SE1), static_cast<size_t>(SE1), 1);
+  auto se2 = blaze::DynamicMatrix<uint8_t>(
+    static_cast<size_t>(SE2), static_cast<size_t>(SE2), 1);
+  auto se3 = blaze::DynamicMatrix<uint8_t>(
+    static_cast<size_t>(SE3), static_cast<size_t>(SE3), 1);
 
-  auto sub =
-    blaze::submatrix(bmp, 1UL, 1UL, bmp.rows() - 2, bmp.columns() - 2);
+  auto img = util::load_image(filename);
+  auto cpy = img;
 
-  std::vector<uint8_t> codes = datamatrix::decode(sub);
-  for (auto i : codes) {
-    std::cout << i - 1 << ": " << static_cast<char>(i - 1) << '\n';
+  auto          gaussed    = filter::gauss(img);
+  auto          closed     = filter::close(gaussed, se1);
+  decltype(img) bottom_hat = closed - img;
+  auto          binarized  = filter::binarize(bottom_hat, threshold);
+  auto          dilated    = filter::dilate(binarized, se2);
+  auto          region_vec = regions::find_regions(dilated);
+
+  auto hull = regions::detail::convex_hull(region_vec[0]);
+
+  for (auto & point : hull) {
+    std::cout << point.i << ", " << point.j << '\n';
   }
+
+  auto hull_img =
+    blaze::DynamicMatrix<uint8_t>(dilated.rows(), dilated.columns(), 0);
+    draw::draw_shape(hull_img, hull, 255UL);
+
+  util::compare(
+    histogram::make_normalized(regions::from_regions(dilated, region_vec)),
+    hull_img);
 }
