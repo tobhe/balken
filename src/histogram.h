@@ -85,9 +85,9 @@ private:
 };
 
 template <class ImageT>
-auto make_normalized(ImageT && img) {
+auto make_normalized(const ImageT & img) {
   return grey_normalized_view<typename std::remove_reference<ImageT>::type>(
-    std::forward<ImageT>(img));
+    img);
 }
 
 template <class ImageT>
