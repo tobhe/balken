@@ -12,7 +12,10 @@
 // cpp
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <limits>
+#include <numeric>
+#include <vector>
 
 // external
 #include <blaze/math/DynamicMatrix.h>
@@ -141,6 +144,26 @@ template <class ImageT>
 decltype(auto) transform(ImageT && img) {
   return detail::fast_independent_scan(std::forward<ImageT>(img));
 }
+
+template <class DistanceMapT>
+auto prune(DistanceMapT && dm) {
+  auto means = std::vector<uint16_t>(dm.rows());
+
+  for (size_t i = 0; i < dm.rows(); ++i) {
+    means[i] = std::accumulate(dm.begin(i), dm.end(i), 0) / dm.columns();
+  }
+
+  auto min_avg_el = *std::min_element(means.begin(), means.end());
+
+  for (size_t i = 0; i < dm.rows(); ++i) {
+    for (size_t j = 0; j < dm.columns(); ++j) {
+      dm(i, j) = dm(i, j) > min_avg_el ? 0 : 255;
+    }
+  }
+
+  return dm;
+}
+
 
 }  // namespace edt
 }  // namespace balken
