@@ -33,8 +33,8 @@ public:
     size_t floor_half_h = floor(_struc.rows() / 2);
     size_t floor_half_w = floor(_struc.columns() / 2);
 
-    if (i < (floor_half_h + 1) || i > _img.rows() - (floor_half_h + 1) ||
-        j < (floor_half_w + 1) || j > _img.columns() - (floor_half_w + 1)) {
+    if (i < (floor_half_h + 1) || i >= _img.rows() - (floor_half_h + 1) ||
+        j < (floor_half_w + 1) || j >= _img.columns() - (floor_half_w + 1)) {
       return 0;
     }
 
