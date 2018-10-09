@@ -11,13 +11,6 @@
 
 namespace balken {
 
-struct Rectangle
-{
-  std::array<float, 2> U;
-  std::array<Point, 4> points;
-  size_t               area;
-};
-
 struct Point
 {
   Point() = default;
@@ -25,6 +18,14 @@ struct Point
 
   int i{0};
   int j{0};
+};
+
+
+struct Rectangle
+{
+  std::array<float, 2> U;
+  std::array<Point, 4> points;
+  size_t               area;
 };
 
 bool operator<(const Point & p1, const Point & p2) {
