@@ -9,6 +9,7 @@
 #ifndef BALKEN__MORPH_H__INCLUDED
 #define BALKEN__MORPH_H__INCLUDED
 
+#include <limits>
 #include "view.h"
 
 namespace balken {
@@ -25,11 +26,13 @@ public:
   using ElementType = typename ImageT::ElementType;
 
 public:
-  ErodedView(const ImageT & img, const StrucT & struc)
+  constexpr ErodedView(const ImageT & img, const StrucT & struc)
    : base_t(img), _struc{struc} {}
 
 public:
-  ElementType view_element(const ImageT & _img, size_t i, size_t j) const {
+  constexpr ElementType view_element(const ImageT & _img,
+                                     size_t         i,
+                                     size_t         j) const {
     size_t floor_half_h = floor(_struc.rows() / 2);
     size_t floor_half_w = floor(_struc.columns() / 2);
 
@@ -64,7 +67,7 @@ public:
   using ElementType = typename ImageT::ElementType;
 
 public:
-  DilatedView(const ImageT & img, const StrucT & struc)
+  constexpr DilatedView(const ImageT & img, const StrucT & struc)
    : base_t(img),
      _struc{struc},
      _floor_half_w{_struc.columns() / 2},
