@@ -19,40 +19,37 @@ namespace draw {
 
 template <class ImageT, class PointT>
 void draw_line(ImageT & img, PointT p0, PointT p1, const int val) {
-  if (p0.first < 0 || p0.second < 0 ||
-      p0.first > (static_cast<int>(img.rows()) - 1) ||
-      p0.second > (static_cast<int>(img.columns()) - 1)) {
+  if (p0.i < 0 || p0.j < 0 || p0.i > (static_cast<int>(img.rows()) - 1) ||
+      p0.j > (static_cast<int>(img.columns()) - 1)) {
     return;
   }
 
-  if (p1.first < 0 || p1.second < 0 ||
-      p1.first > (static_cast<int>(img.rows()) - 1) ||
-      p1.second > (static_cast<int>(img.columns()) - 1)) {
+  if (p1.i < 0 || p1.j < 0 || p1.i > (static_cast<int>(img.rows()) - 1) ||
+      p1.j > (static_cast<int>(img.columns()) - 1)) {
     return;
   }
 
   // Shortcut for single pixel
-  if (p0.first == p1.first && p0.second == p1.second) {
-    img(p0.first, p0.second) = val;
+  if (p0.i == p1.i && p0.j == p1.j) {
+    img(p0.i, p0.j) = val;
     return;
   }
 
-  const bool steep = (abs(p1.first - p0.first) > abs(p1.second - p0.second));
+  const bool steep = (abs(p1.i - p0.i) > abs(p1.j - p0.j));
   if (steep) {
-    p0 = std::make_pair(p0.second, p0.first);
-    p1 = std::make_pair(p1.second, p1.first);
+    p0 = Point(p0.j, p0.i);
+    p1 = Point(p1.j, p1.i);
   }
+  if (p0.j > p1.j) { std::swap(p0, p1); }
 
-  if (p0.second > p1.second) { std::swap(p0, p1); }
+  int dx = p1.j - p0.j;
+  int dy = abs(p1.i - p0.i);
 
-  int dx = p1.second - p0.second;
-  int dy = abs(p1.first - p0.first);
+  float     error = static_cast<float>(dx) / 2.0f;
+  const int step  = (p0.i < p1.i) ? 1 : -1;
+  int       y     = p0.i;
 
-  float     error = static_cast<float>(dx) / 2.0;
-  const int step  = (p1.first < p0.first) ? 1 : -1;
-  int       y     = p0.first;
-
-  for (int x = p0.second; x <= p1.second; ++x) {
+  for (int x = p0.j; x <= p1.j; ++x) {
     if (steep) {
       img(x, y) = val;
     } else {
@@ -69,41 +66,23 @@ void draw_line(ImageT & img, PointT p0, PointT p1, const int val) {
 template <class ImageT, class ShapeT>
 void draw_shape(ImageT & img, ShapeT shape, uint8_t val) {
   for (auto i = size_t{1}; i < shape.size(); ++i) {
-    draw_line(img,
-              std::make_pair(shape[i - 1].i, shape[i - 1].j),
-              std::make_pair(shape[i].i, shape[i].j),
-              val);
+    draw_line(img, shape[i - 1], shape[i], val);
   }
-}
-
-template <class ImageT, class PointT>
-void draw_box(ImageT & img, const PointT tl, const PointT br, const int val) {
-  auto tr = std::pair<int, int>(tl.first, br.second);
-  auto bl = std::pair<int, int>(br.first, tl.second);
-
-  std::cout << "i: " << tl.first << " j: " << tl.second << '\n';
-  std::cout << "i: " << tr.first << " j: " << tr.second << '\n';
-  std::cout << "i: " << bl.first << " j: " << bl.second << '\n';
-  std::cout << "i: " << br.first << " j: " << br.second << '\n';
-
-  draw_line(img, tl, tr, val);
-  draw_line(img, tr, br, val);
-  draw_line(img, bl, br, val);
-  draw_line(img, tl, bl, val);
+  draw_line(img, shape.back(), shape.front(), val);
 }
 
 template <class ImageT>
-void draw_bounding_box(ImageT &                                 img,
-                       const std::vector<std::pair<int, int>> & points,
-                       const int                                val) {
-  auto top_left  = std::pair<int, int>(img.rows() - 1, img.columns() - 1);
-  auto bot_right = std::pair<int, int>(0, 0);
+void draw_bounding_box(ImageT &                   img,
+                       const std::vector<Point> & points,
+                       const int                  val) {
+  auto top_left  = Point(img.rows() - 1, img.columns() - 1);
+  auto bot_right = Point(0, 0);
 
   for (auto i : points) {
-    if (i.second < top_left.second) { top_left.second = i.second; }
-    if (i.second > bot_right.second) { bot_right.second = i.second; }
-    if (i.first < top_left.first) { top_left.first = i.first; }
-    if (i.first > bot_right.first) { bot_right.first = i.first; }
+    if (i.j < top_left.j) { top_left.j = i.j; }
+    if (i.j > bot_right.j) { bot_right.j = i.j; }
+    if (i.i < top_left.i) { top_left.i = i.i; }
+    if (i.i > bot_right.i) { bot_right.i = i.i; }
   }
 
   draw_box(img, top_left, bot_right, val);
