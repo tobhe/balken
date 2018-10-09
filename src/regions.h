@@ -13,6 +13,7 @@
 #include <blaze/math/DynamicMatrix.h>
 
 // cpp
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <stack>
@@ -23,6 +24,7 @@ namespace balken {
 namespace regions {
 
 namespace detail {
+
 int cross(const Point & O, const Point & A, const Point & B) {
   return (A.j - O.j) * (B.i - O.i) - (A.i - O.i) * (B.j - O.j);
 }
@@ -65,7 +67,7 @@ std::vector<Point> walk_region(const BinaryImageT &         img,
 }  // namespace detail
 
 /**
- * Calculate the regions minimal bounding box
+ * Calculate the regions convex hull
  */
 template <class RegionT>
 std::vector<Point> convex_hull(RegionT & region) {
@@ -101,7 +103,7 @@ std::vector<Point> convex_hull(RegionT & region) {
  * One Component at a time algorithm
  */
 template <class BinaryImageT>
-std::vector<std::vector<Point>> find_regions(const BinaryImageT & img) {
+std::vector<std::vector<Point>> find(const BinaryImageT & img) {
   auto visited = blaze::DynamicMatrix<bool>(img.rows(), img.columns(), false);
   auto stack   = std::stack<Point>();
   auto regions = std::vector<std::vector<Point>>();
@@ -132,25 +134,41 @@ blaze::DynamicMatrix<uint8_t> from_regions(
   return reg;
 }
 
-/**
- * Calculate optimal minimal bounding box using rotating calipers
- */
 template <class RegionT>
-std::vector<Point> bounding_rectangle(const RegionT & region) {
-  auto hull = convex_hull(region);
+std::pair<size_t, size_t> dimensions(const RegionT & region) {
+  auto max_i = size_t{0};
+  auto min_i = size_t{std::numeric_limits<size_t>::max()};
 
-  auto max_i, max_j = size_t{0};
-  auto min_i, min_j = size_t{std::numeric_limits<size_t>::max()};
-  for (auto & point : hull) {
-    max_i = std::max(max_i, point.i);
-    max_k = std::max(max_j, point.j);
-    min_i = std::min(min_i, point.i);
-    min_k = std::min(min_j, point.j);
+  auto max_j = size_t{0};
+  auto min_j = size_t{std::numeric_limits<size_t>::max()};
+
+  for (auto & element : region) {
+    min_i = std::min(min_i, static_cast<size_t>(element.i));
+    max_i = std::max(max_i, static_cast<size_t>(element.i));
+    min_j = std::min(min_j, static_cast<size_t>(element.j));
+    max_j = std::max(max_j, static_cast<size_t>(element.j));
   }
 
-  float min_area = float{std::numeric_limits<float>::max()};
+  return std::make_pair(max_i - min_i, max_j - min_j);
 }
 
+/**
+ * Filter regions by size and dimensions
+ */
+template <class RegionsT>
+decltype(auto) filter(RegionsT && regions) {
+  std::remove_if(regions.begin(), regions.end(), [](const auto & el) {
+    if (el.size() < 500 || el.size() > 1000) { return true; }
+    auto dims = regions::dimensions(el);
+    if (std::abs(static_cast<int>(dims.first) -
+                 static_cast<int>(dims.second)) >
+        std::min(dims.first, dims.second)) {
+      return true;
+    }
+    return false;
+  });
+  return regions;
+}
 
 }  // namespace regions
 }  // namespace balken
