@@ -21,6 +21,9 @@
 
 using namespace balken;
 
+template <class RegionsT>
+decltype(auto) filter(RegionsT && regions);
+
 int main(int, char * argv[]) {
   std::string filename  = argv[1];
   int         threshold = atoi(argv[2]);
@@ -43,19 +46,19 @@ int main(int, char * argv[]) {
   decltype(img) bottom_hat = closed - img;
   auto          binarized  = filter::binarize(bottom_hat, threshold);
   auto          dilated    = filter::dilate(binarized, se2);
-  auto          region_vec = regions::find_regions(dilated);
-
-  auto hull = regions::detail::convex_hull(region_vec[0]);
-
-  for (auto & point : hull) {
-    std::cout << point.i << ", " << point.j << '\n';
-  }
+  auto          region_vec = regions::find(dilated);
+  std::cout << "Size before: " << region_vec.size() << '\n';
+  auto filtered_regions = regions::filter(region_vec);
+  std::cout << "Size after: " << filtered_regions.size() << '\n';
 
   auto hull_img =
     blaze::DynamicMatrix<uint8_t>(dilated.rows(), dilated.columns(), 0);
-    draw::draw_shape(hull_img, hull, 255UL);
 
-  util::compare(
-    histogram::make_normalized(regions::from_regions(dilated, region_vec)),
-    hull_img);
+  for (auto & region : filtered_regions) {
+    auto hull = regions::convex_hull(region);
+    draw::draw_shape(hull_img, hull, 255UL);
+  }
+
+  util::compare(histogram::make_normalized(cpy), hull_img);
 }
+
