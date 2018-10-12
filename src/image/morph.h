@@ -15,6 +15,37 @@
 
 namespace balken {
 namespace morph {
+
+namespace adaptors {
+
+template <class StrucT>
+struct dilate_options
+{
+  explicit dilate_options(const StrucT & kernel) : kernel(kernel) {}
+  const StrucT & kernel;
+};
+
+template <class StrucT>
+auto dilate(const StrucT & struc) {
+  return dilate_options<StrucT>(struc);
+}
+
+template <class StrucT>
+struct erode_options
+{
+  explicit erode_options(const StrucT & kernel) : kernel(kernel) {}
+  const StrucT & kernel;
+};
+
+template <class StrucT>
+auto erode(const StrucT & struc) {
+  return erode_options<StrucT>(struc);
+}
+
+
+}  // namespace adaptors
+
+
 namespace views {
 
 template <class ImageT, class StrucT>
@@ -194,6 +225,22 @@ template <class ImageT, class KernelT>
 auto close(const ImageT & img, const KernelT & kernel) {
   return erode(dilate(img, kernel), kernel);
 }
+
+namespace adaptors {
+
+template <class ImageT, class StrucT>
+constexpr views::DilatedView<ImageT, StrucT> operator|(
+  const ImageT & img, dilate_options<StrucT> d) {
+  return views::DilatedView<ImageT, StrucT>(img, d.kernel);
+}
+
+template <class ImageT, class StrucT>
+constexpr views::ErodedView<ImageT, StrucT> operator|(
+  const ImageT & img, erode_options<StrucT> d) {
+  return views::ErodedView<ImageT, StrucT>(img, d.kernel);
+}
+
+}  // namespace adaptors
 
 }  // namespace morph
 }  // namespace balken
