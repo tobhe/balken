@@ -163,6 +163,7 @@ std::vector<std::vector<Point>> find(const BinaryImageT & img) {
   auto visited = blaze::DynamicMatrix<bool>(img.rows(), img.columns(), false);
   auto stack   = std::stack<Point>();
   auto regions = std::vector<std::vector<Point>>();
+  regions.reserve(img.rows() * img.columns());
 
   for (int i = 0; i < static_cast<int>(img.rows()); ++i) {
     for (int j = 0; j < static_cast<int>(img.columns()); ++j) {
