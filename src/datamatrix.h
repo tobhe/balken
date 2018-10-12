@@ -16,11 +16,17 @@
 
 // external
 #include <blaze/math/DynamicMatrix.h>
+#include <dmtx.h>
+
+// own
+#include "types.h"
+#include "util.h"
+
+#define DEBUG (1)
 
 namespace balken {
 namespace datamatrix {
 namespace detail {
-
 
 /**
  * Returns the size of a single module
@@ -30,13 +36,27 @@ namespace detail {
  *
  * \return Size of module or -1 in case of error.
  */
-int module_size(const std::pair<int, int> top_left,
-                const blaze::DynamicMatrix<uint8_t, blaze::rowMajor> & image) {
-  for (size_t i = 1UL; i < image.columns(); ++i) {
-    if (image(top_left.second, top_left.first + i) == 0) { return i; }
+template <class ImageT>
+int module_size(const Point    top_left,
+                const Point    bottom_right,
+                const ImageT & image) {
+  auto cur   = image(top_left.i, top_left.j);
+  auto count = size_t{1};
+
+  for (int i = 1UL; i <= bottom_right.j; ++i) {
+    if (image(top_left.i, top_left.j + i) != cur) {
+      cur = image(top_left.i, top_left.j + i);
+      ++count;
+    }
   }
-  // Only if only black
-  return 0;
+
+  // smallest possible mat is size 6
+  if (count > 6) {
+    auto distance = bottom_right.j - top_left.j;
+    std::cout << "Distance, Count: " << distance << ", " << count << '\n';
+    return static_cast<int>(round(distance / static_cast<float>(count)));
+  }
+  return -1;
 }
 
 
@@ -47,17 +67,18 @@ int module_size(const std::pair<int, int> top_left,
  *
  * \return pair(x,y) or pair(-1,-1)
  */
-auto find_top_left_black(
-  const blaze::DynamicMatrix<uint8_t, blaze::rowMajor> & image) {
+template <class ImageT>
+Point find_top_left_black(const ImageT & image) {
   // Iterate over Matrix
   for (size_t i = 0UL; i < image.rows(); ++i) {
     for (size_t j = 0UL; j < image.columns(); ++j) {
-      if (image(i, j) == 1) {
-        return std::make_pair(static_cast<int>(j), static_cast<int>(i));
+      if (image(i, j) == 0) {
+        std::cout << "TopLeft: " << i << ", " << j << '\n';
+        return Point(i, j);
       }
     }
   }
-  return std::pair<int, int>(-1, -1);
+  return Point(-1, -1);
 }
 
 
@@ -73,10 +94,13 @@ auto find_bottom_right_black(const ImageT & image) {
   // Iterate over Matrix
   for (int i = static_cast<int>(image.rows() - 1); i >= 0; --i) {
     for (int j = static_cast<int>(image.columns() - 1); j >= 0; --j) {
-      if (image(i, j) == 1) { return std::pair<int, int>(j, i); }
+      if (image(i, j) == 0) {
+        std::cout << "BottomRight: " << i << ", " << j << '\n';
+        return Point(i, j);
+      }
     }
   }
-  return std::make_pair(-1, -1);
+  return Point(-1, -1);
 }
 
 template <class CodeT>
@@ -116,16 +140,12 @@ auto access_wrap(int row, int column, CodeT && img) {
  * \return  Decoded byte value
  */
 template <class CodeT>
-uint8_t decode_codeword(std::pair<int, int> corner, const CodeT & img) {
+uint8_t decode_codeword(Point corner, const CodeT & img) {
   uint8_t val{0};
   uint8_t count{0};
 
-#ifdef DEBUG
-  std::cout << "Image: " << img.rows() << "x" << img.columns() << '\n';
-#endif
-
-  int column = corner.first;
-  int row    = corner.second;
+  int column = corner.j;
+  int row    = corner.i;
 
   // Handle special corner cases
   if (row == static_cast<int>(img.rows() - 2) && column == 0) {
@@ -223,8 +243,8 @@ uint8_t decode_codeword(std::pair<int, int> corner, const CodeT & img) {
       for (int j = 0; j < 3; ++j) {
         if (i == 2 && j == 0) { continue; }
 
-        auto x = corner.first - j;
-        auto y = corner.second - i;
+        auto x = corner.j - j;
+        auto y = corner.i - i;
 
         if (y < 0) {
           y += img.rows();
@@ -254,21 +274,36 @@ uint8_t decode_codeword(std::pair<int, int> corner, const CodeT & img) {
  * \return  Matrix of inner data matrix section
  */
 template <class ImageT>
-auto from_image(const ImageT & img) {
+auto code(const ImageT & img) {
   // find top left and bottom right pixels
   auto top_left     = detail::find_top_left_black(img);
   auto bottom_right = detail::find_bottom_right_black(img);
 
   // find min and max
-  auto top    = top_left.second;
-  auto bottom = bottom_right.second;
-  auto left   = top_left.first;
-  auto right  = bottom_right.first;
+  auto top  = top_left.i;
+  auto left = top_left.j;
 
-  auto mod_size = detail::module_size(top_left, img);
+  // Count change of values to get width
+  auto cur   = img(top_left.i, top_left.j);
+  auto count = size_t{1};
+  for (int i = 1UL; i <= bottom_right.j; ++i) {
+    if (img(top_left.i, top_left.j + i) != cur) {
+      cur = img(top_left.i, top_left.j + i);
+      ++count;
+    }
+  }
 
-  auto matrix_width  = ((right + 1) - left) / mod_size;
-  auto matrix_height = ((bottom + 1) - top) / mod_size;
+  auto mod_size = int{0};
+  // smallest possible mat is size 6
+  if (count > 6) {
+    auto distance = bottom_right.j - top_left.j;
+    std::cout << "Distance, Count: " << distance << ", " << count << '\n';
+    mod_size = static_cast<int>(round(distance / static_cast<float>(count)));
+  }
+
+  // Assume width == height
+  auto matrix_width  = count;
+  auto matrix_height = count;
   if (matrix_height <= 0 && matrix_width <= 0) {
     // return empty
     return blaze::DynamicMatrix<uint8_t>();
@@ -303,52 +338,108 @@ std::vector<uint8_t> decode(const CodeT & code) {
   auto inner =
     blaze::submatrix(code, 1UL, 1UL, code.rows() - 2, code.columns() - 2);
 
-  std::cout << "Columns: " << static_cast<int>(inner.columns()) << std::endl;
+  // #ifdef DEBUG
+  //   std::cout << "(" << column << ", " << row
+  //             << ") = " << static_cast<int>(res.back()) << std::endl;
+  // #endif
 
   while (row < static_cast<int>(inner.rows()) ||
          column < static_cast<int>(inner.columns())) {
     if (row == static_cast<int>(inner.rows() - 2) && column == 0) {
-      res.push_back(
-        detail::decode_codeword(std::pair<int, int>(column, row), inner));
+      res.push_back(detail::decode_codeword(Point(row, column), inner));
     } else if ((row == static_cast<int>(inner.rows() - 2)) and
                (column == 0) and (inner.columns() % 4)) {
-      res.push_back(
-        detail::decode_codeword(std::pair<int, int>(column, row), inner));
+      res.push_back(detail::decode_codeword(Point(row, column), inner));
 
     } else if ((row == static_cast<int>(inner.rows() - 2)) and
                (column == 0) and ((inner.columns() % 8) == 4)) {
-      res.push_back(
-        detail::decode_codeword(std::pair<int, int>(column, row), inner));
+      res.push_back(detail::decode_codeword(Point(row, column), inner));
     } else if ((row == static_cast<int>(inner.rows() + 4)) and
                (column == 2) and !(inner.columns() % 8)) {
-      res.push_back(
-        detail::decode_codeword(std::pair<int, int>(column, row), inner));
+      res.push_back(detail::decode_codeword(Point(row, column), inner));
     }
 
     while ((row >= 0) && column < static_cast<int>(inner.columns())) {
-      res.push_back(
-        detail::decode_codeword(std::pair<int, int>(column, row), inner));
+      res.push_back(detail::decode_codeword(Point(row, column), inner));
       row -= 2;
       column += 2;
-      std::cout << column << ", " << row << std::endl;
+#ifdef DEBUG
+      std::cout << "(" << column << ", " << row
+                << ") = " << static_cast<int>(res.back()) << std::endl;
+#endif
     }
     row += 1;
     column += 3;
-    std::cout << column << ", " << row << '\n';
+
+#ifdef DEBUG
+    std::cout << "(" << column << ", " << row
+              << ") = " << static_cast<int>(res.back()) << std::endl;
+#endif
 
     while ((column >= 0) and row < static_cast<int>(inner.rows())) {
-      res.push_back(
-        detail::decode_codeword(std::pair<int, int>(column, row), inner));
+      res.push_back(detail::decode_codeword(Point(row, column), inner));
       row += 2;
       column -= 2;
-      std::cout << column << ", " << row << '\n';
+#ifdef DEBUG
+      std::cout << "(" << column << ", " << row
+                << ") = " << static_cast<int>(res.back()) << std::endl;
+#endif
     }
     row += 3;
     column += 1;
-    std::cout << column << ", " << row << '\n';
+#ifdef DEBUG
+    std::cout << "(" << column << ", " << row
+              << ") = " << static_cast<int>(res.back()) << std::endl;
+#endif
   }
 
   return res;
+}
+
+template <class CodeT>
+int dmtx_decode(const CodeT & code) {
+  auto _data = std::vector<uint8_t>();
+  for (size_t i = 0; i < code.rows(); ++i) {
+    for (size_t j = 0; j < code.columns(); ++j) {
+      _data.push_back(code(i, j));
+    }
+  }
+
+  for (size_t i = 0; i < code.rows(); ++i) {
+    for (size_t j = 0; j < code.columns(); ++j) {
+      std::cout << static_cast<int>(_data.data()[j + (i * j)] == 255 ? 1 : 0)
+                << ' ';
+    }
+    std::cout << '\n';
+  }
+
+  DmtxImage * img =
+    dmtxImageCreate(_data.data(), code.columns(), code.rows(), DmtxPack8bppK);
+  assert(img != NULL);
+
+  DmtxDecode * dec = dmtxDecodeCreate(img, 1);
+  assert(dec != NULL);
+
+  DmtxRegion * reg = dmtxRegionFindNext(dec, NULL);
+  std::cout << "Looking for region" << '\n';
+
+  DmtxMessage * msg;
+  if (reg != NULL) {
+    std::cout << "Found region" << '\n';
+    msg = dmtxDecodeMatrixRegion(dec, reg, DmtxUndefined);
+    if (msg != NULL) {
+      for (size_t i = 0; i < static_cast<size_t>(msg->outputIdx); ++i) {
+        std::cout << msg->output[i];
+      }
+      std::cout << '\n';
+      dmtxMessageDestroy(&msg);
+    }
+    dmtxRegionDestroy(&reg);
+  }
+  dmtxDecodeDestroy(&dec);
+  dmtxImageDestroy(&img);
+
+  return 0;
 }
 
 }  // namespace datamatrix

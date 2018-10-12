@@ -7,3 +7,6 @@
 [submodule "thirdparty/celero"]
 	path = thirdparty/celero
 	url = https://github.com/DigitalInBlue/Celero
+[submodule "thirdparty/libdmtx"]
+	path = thirdparty/libdmtx
+	url = https://github.com/dmtx/libdmtx

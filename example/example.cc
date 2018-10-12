@@ -6,23 +6,26 @@
  * directory for more details.
  */
 
-#include <blaze/math/DynamicMatrix.h>
+// cpp
 #include <iostream>
-
 #include <string>
+
+// thirdparty
+#include <blaze/math/DynamicMatrix.h>
+#include <blaze/math/Submatrix.h>
+
+// own
 #include "datamatrix.h"
-#include "draw.h"
-#include "edt.h"
-#include "filter.h"
-#include "histogram.h"
-#include "morph.h"
-#include "regions.h"
+#include "image/edt.h"
+#include "image/filter.h"
+#include "image/geometry.h"
+#include "image/histogram.h"
+#include "image/morph.h"
+#include "region/draw.h"
+#include "region/regions.h"
 #include "util.h"
 
 using namespace balken;
-
-template <class RegionsT>
-decltype(auto) filter(RegionsT && regions);
 
 int main(int, char * argv[]) {
   std::string filename  = argv[1];
@@ -40,25 +43,40 @@ int main(int, char * argv[]) {
 
   auto img = util::load_image(filename);
   auto cpy = img;
+  util::view_image(cpy);
 
-  auto          gaussed    = filter::gauss(img);
-  auto          closed     = filter::close(gaussed, se1);
+  auto closed = morph::close(histogram::views::stretch(img), se1);
+  util::view_image(closed);
   decltype(img) bottom_hat = closed - img;
-  auto          binarized  = filter::binarize(bottom_hat, threshold);
-  auto          dilated    = filter::dilate(binarized, se2);
-  auto          region_vec = regions::find(dilated);
+  util::view_image(bottom_hat);
+  auto binarized = filter::views::binarize(bottom_hat, threshold);
+  util::view_image(binarized);
+  auto dilated    = morph::views::dilate(binarized, se2);
+  auto region_vec = regions::find(dilated);
   std::cout << "Size before: " << region_vec.size() << '\n';
-  auto filtered_regions = regions::filter(region_vec);
-  std::cout << "Size after: " << filtered_regions.size() << '\n';
+  regions::filter(img.rows() * img.columns(), region_vec);
+  std::cout << "Size after: " << region_vec.size() << '\n';
+  util::view_image(dilated);
 
+  auto region = region_vec[1];
   auto hull_img =
     blaze::DynamicMatrix<uint8_t>(dilated.rows(), dilated.columns(), 0);
 
-  for (auto & region : filtered_regions) {
-    auto hull = regions::convex_hull(region);
-    draw::draw_shape(hull_img, hull, 255UL);
-  }
+  auto hull = regions::convex_hull(region);
+  draw::draw_shape(hull_img, hull, 255UL);
+  auto bounding_box = regions::bounding_box(hull);
+  util::view_image(hull_img);
 
-  util::compare(histogram::make_normalized(cpy), hull_img);
+  auto sub = blaze::submatrix(img,
+                              bounding_box[0].i,
+                              bounding_box[0].j,
+                              bounding_box[3].i - bounding_box[0].i,
+                              bounding_box[1].j - bounding_box[0].j);
+
+  auto matrix = datamatrix::code(
+    filter::views::binarize(histogram::views::stretch(sub), 150));
+  util::compare(filter::views::binarize(histogram::views::stretch(sub), 150),
+                geometry::scale(matrix, 5));
+
+  return 0;
 }
-

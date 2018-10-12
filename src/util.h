@@ -13,9 +13,6 @@
 #include <CImg.h>
 #include <blaze/math/DynamicMatrix.h>
 
-// own
-#include "image.h"
-
 namespace balken {
 namespace util {
 
@@ -102,7 +99,17 @@ template <class ImageT>
 inline void print_image(const ImageT & img) {
   for (size_t i = 0; i < img.rows(); ++i) {
     for (size_t j = 0; j < img.columns(); ++j) {
-      std::cout << (img(i, j) == 1 ? 1U : 0U) << ' ';
+      std::cout << static_cast<int>(img(i, j) == 255 ? 1 : 0) << ' ';
+    }
+    std::cout << std::endl;
+  }
+}
+
+template <class ImageT>
+inline void print_code(const ImageT & img) {
+  for (size_t i = 0; i < img.rows(); ++i) {
+    for (size_t j = 0; j < img.columns(); ++j) {
+      std::cout << static_cast<int>(img(i, j)) << ' ';
     }
     std::cout << std::endl;
   }

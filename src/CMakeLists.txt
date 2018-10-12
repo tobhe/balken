@@ -6,7 +6,7 @@ target_compile_options (balken
   INTERFACE -Wall -Wextra -Wpedantic -fPIC -Wfatal-errors)
 
 target_link_libraries (balken
-  INTERFACE Threads::Threads ${X11_LIBRARIES} blaze
+    INTERFACE Threads::Threads ${X11_LIBRARIES} blaze dmtx
   )
 
 target_include_directories (balken

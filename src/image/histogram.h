@@ -14,6 +14,7 @@
 #include <limits>
 #include <unordered_map>
 #include <utility>
+#include "view.h"
 
 namespace balken {
 namespace histogram {
@@ -44,51 +45,48 @@ auto accumulate(HistT & hist) {
 
 }  // namespace detail
 
+namespace views {
+
 template <class ImageT>
-class grey_normalized_view
+class StretchedView : public view::ViewBase<ImageT, StretchedView<ImageT>>
 {
-public:
-  using value_type      = typename ImageT::ElementType;
-  using reference       = value_type &;
-  using const_reference = const value_type &;
-  using pointer         = value_type *;
-  using const_pointer   = const value_type *;
+  using self_t = StretchedView<ImageT>;
+  using base_t = view::ViewBase<ImageT, self_t>;
 
 public:
-  grey_normalized_view() = delete;
-  grey_normalized_view(const ImageT & img)
-   : _img(img), _max(blaze::max(img)), _min(blaze::min(img)) {}
-  ~grey_normalized_view() = default;
+  // blaze
+  using ElementType = typename ImageT::ElementType;
+
+public:
+  StretchedView() = delete;
+  StretchedView(const ImageT & img)
+   : base_t(img), _max(blaze::max(img)), _min(blaze::min(img)) {}
+  ~StretchedView() = default;
 
   // Element Access
 private:
-  constexpr uint8_t normalize(const_reference ref) const {
+  constexpr uint8_t normalize(const ElementType & ref) const {
     auto factor =
       std::numeric_limits<uint8_t>::max() / static_cast<float>(_max - _min);
-
     return static_cast<uint8_t>((ref - _min) * factor);
   }
 
 public:
   constexpr uint8_t operator()(size_t i, size_t j) const {
-    return normalize(_img(i, j));
+    return normalize(this->_img(i, j));
   }
 
-  // Non Modifying
-  size_t rows() const { return _img.rows(); }
-  size_t columns() const { return _img.columns(); }
-
 private:
-  const ImageT &   _img;
-  const value_type _max;
-  const value_type _min;
+  const ElementType _max;
+  const ElementType _min;
 };
 
 template <class ImageT>
-auto make_normalized(const ImageT & img) {
-  return grey_normalized_view<typename std::remove_reference<ImageT>::type>(
-    img);
+auto stretch(const ImageT & img) {
+  return StretchedView<ImageT>(img);
 }
+
+}  // namespace views
 
 template <class ImageT>
 auto equalize(ImageT & img) {
@@ -136,6 +134,5 @@ decltype(auto) stretch(ImageT && img) {
 
 }  // namespace histogram
 }  // namespace balken
-
 
 #endif

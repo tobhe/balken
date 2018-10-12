@@ -6,9 +6,10 @@
  * directory for more details.
  */
 
-
 #ifndef BALKEN__VIEW_H__INCLUDED
 #define BALKEN__VIEW_H__INCLUDED
+
+#include <cstddef>
 
 namespace balken {
 namespace view {
@@ -32,13 +33,13 @@ public:
   constexpr ViewBase(const ImageT & img) : _img{img} {}
   ~ViewBase() = default;
 
-  decltype(auto) operator()(size_t i, size_t j) const {
-    return derived().view_element(_img, i, j);
+  constexpr decltype(auto) operator()(size_t i, size_t j) const {
+    return derived().view_element(i, j);
   }
 
   // Dimensions
-  auto rows() const { return _img.rows(); }
-  auto columns() const { return _img.columns(); }
+  constexpr auto rows() const { return _img.rows(); }
+  constexpr auto columns() const { return _img.columns(); }
 
 protected:
   const ImageT & _img;

@@ -66,6 +66,63 @@ std::vector<Point> walk_region(const BinaryImageT &         img,
 }
 }  // namespace detail
 
+template <class HullT>
+std::vector<Point> minimal_bounding_rectangle(const HullT & hull) {
+  auto p1 = hull[0];
+  auto p2 = hull[1];
+
+  if (p1.j > p2.j) { std::swap(p1, p2); }
+  double angle =
+    std::atan2(static_cast<double>(p1.i) - static_cast<double>(p2.i),
+               static_cast<double>(p1.j) - static_cast<double>(p2.j));
+
+  p1 = hull[1];
+  p2 = hull[2];
+
+  if (p1.j > p2.j) { std::swap(p1, p2); }
+  angle = std::atan2(static_cast<double>(p1.i) - static_cast<double>(p2.i),
+                     static_cast<double>(p1.j) - static_cast<double>(p2.j));
+
+  p1 = hull[2];
+  p2 = hull[3];
+
+  if (p1.j > p2.j) { std::swap(p1, p2); }
+  angle = std::atan2(static_cast<double>(p1.i) - static_cast<double>(p2.i),
+                     static_cast<double>(p1.j) - static_cast<double>(p2.j));
+
+  p1 = hull[3];
+  p2 = hull[0];
+
+  if (p1.j > p2.j) { std::swap(p1, p2); }
+  angle = std::atan2(static_cast<double>(p1.i) - static_cast<double>(p2.i),
+                     static_cast<double>(p1.j) - static_cast<double>(p2.j));
+  return hull;
+}
+
+/**
+ * Minimal axis-aligned bounding box
+ */
+template <class RegionT>
+std::vector<Point> bounding_box(RegionT & region) {
+  auto max_i = region[0].i;
+  auto min_i = region[0].i;
+
+  auto max_j = region[0].j;
+  auto min_j = region[0].j;
+
+  for (auto & point : region) {
+    max_i = std::max(max_i, point.i);
+    min_i = std::min(min_i, point.i);
+    max_j = std::max(max_j, point.j);
+    min_j = std::min(min_j, point.j);
+  }
+
+  return std::vector<Point>{Point(min_i, min_j),
+                            Point(min_i, max_j),
+                            Point(max_i, max_j),
+                            Point(max_i, min_j)};
+}
+
 /**
  * Calculate the regions convex hull
  */
@@ -97,7 +154,6 @@ std::vector<Point> convex_hull(RegionT & region) {
   hull.resize(k - 1);
   return hull;
 }
-
 
 /**
  * One Component at a time algorithm
@@ -156,18 +212,24 @@ std::pair<size_t, size_t> dimensions(const RegionT & region) {
  * Filter regions by size and dimensions
  */
 template <class RegionsT>
-decltype(auto) filter(RegionsT && regions) {
-  std::remove_if(regions.begin(), regions.end(), [](const auto & el) {
-    if (el.size() < 500 || el.size() > 1000) { return true; }
-    auto dims = regions::dimensions(el);
-    if (std::abs(static_cast<int>(dims.first) -
-                 static_cast<int>(dims.second)) >
-        std::min(dims.first, dims.second)) {
-      return true;
-    }
-    return false;
-  });
-  return regions;
+decltype(auto) filter(size_t img_size, RegionsT && regions) {
+  return regions.erase(
+    std::remove_if(regions.begin(),
+                   regions.end(),
+                   [img_size](const auto & el) {
+                     if (el.size() < img_size / 50 ||
+                         el.size() > img_size / 10) {
+                       return true;
+                     }
+                     auto dims = dimensions(el);
+                     if (std::abs(static_cast<int>(dims.first) -
+                                  static_cast<int>(dims.second)) >
+                         std::max(dims.first, dims.second)) {
+                       return true;
+                     }
+                     return false;
+                   }),
+    regions.end());
 }
 
 }  // namespace regions

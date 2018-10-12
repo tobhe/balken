@@ -72,9 +72,9 @@ void draw_shape(ImageT & img, ShapeT shape, uint8_t val) {
 }
 
 template <class ImageT>
-void draw_bounding_box(ImageT &                   img,
-                       const std::vector<Point> & points,
-                       const int                  val) {
+void bounding_box(ImageT &                   img,
+                  const std::vector<Point> & points,
+                  const int                  val) {
   auto top_left  = Point(img.rows() - 1, img.columns() - 1);
   auto bot_right = Point(0, 0);
 
